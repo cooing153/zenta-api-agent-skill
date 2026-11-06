@@ -1,0 +1,13 @@
+{
+  "name": "zenta",
+  "description": "Zenta (젠타) agent skills",
+  "owner": { "name": "Flean Labs" },
+  "plugins": [
+    {
+      "name": "zenta-api",
+      "source": "./",
+      "description": "Work in Zenta with an API token: issues, documents and chat.",
+      "license": "MIT"
+    }
+  ]
+}

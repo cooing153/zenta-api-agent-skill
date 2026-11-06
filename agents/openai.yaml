@@ -1,0 +1,6 @@
+interface:
+  display_name: "Zenta API"
+  short_description: "Work in Zenta (젠타): issues, documents, chat"
+  default_prompt: "Use $zenta-api to work in our Zenta. Check the token first."
+policy:
+  allow_implicit_invocation: true
