@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs'
 import { docFromMarkdown, markdownFromDoc, pagePayload, unwritableKinds } from './markdown-doc.mjs'
 
-const VERSION = '1.0.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
+const VERSION = '1.2.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
 const HELP = `사용법: node zenta.mjs <check | METHOD PATH> [옵션]
   --query k=v        주소 뒤 ?k=v (여러 번)
   --json '<JSON>'    JSON 본문
@@ -19,7 +19,7 @@ const HELP = `사용법: node zenta.mjs <check | METHOD PATH> [옵션]
   --markdown <파일>   문서 만들기·고치기: 마크다운을 문서 내용(doc·body)으로 바꿔 JSON 본문에 넣어요 (- 이면 표준 입력)
   --append-markdown <파일>  문서 고치기: 지금 문서 끝에 마크다운을 덧붙여요(지금 판을 읽어 와요)
   --retry            429 면 Retry-After 만큼 기다렸다가 두 번까지 다시
-  --yes              지우기(DELETE)를 정말 보낼 때
+  --yes              빼기·지우기(DELETE)를 정말 보낼 때
 환경: ZENTA_URL (예: https://zenta.example.com) · ZENTA_TOKEN 또는 ZENTA_TOKEN_FILE`
 
 const out = (s) => process.stdout.write(s + '\n')
@@ -174,7 +174,7 @@ async function withMarkdown(method, path, a, headers) {
 
 async function request(method, path, a) {
   if (!path?.startsWith('/api/')) fail(`주소는 /api/ 로 시작해야 해요: ${path ?? '(없음)'}\n${HELP}`)
-  if (method === 'DELETE' && !a.yes) fail('지우기는 되돌릴 수 없어요. 사람에게 확인받은 뒤 --yes 를 붙여 다시 보내 주세요.')
+  if (method === 'DELETE' && !a.yes) fail('빼기·지우기(DELETE)는 사람에게 확인받은 뒤 --yes 를 붙여 다시 보내 주세요.')
   const url = new URL(base() + path)
   for (const q of a.query) url.searchParams.append(...kv(q, '--query'))
   const headers = { authorization: `Bearer ${token()}`, 'user-agent': `zenta-api-skill/${VERSION}` }

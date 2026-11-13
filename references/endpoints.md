@@ -21,6 +21,7 @@ An endpoint with no scope works with any personal token (bot tokens: `chat:write
 
 | Status | `code` | Meaning |
 |---|---|---|
+| 400 | `BAD_REQUEST` | Fix the input: e.g. blank text, or over a length limit (chat 10,000 · issue title 300 · description 50,000 · comment 20,000 · doc title 200 · doc body 200,000 characters). |
 | 401 | `UNAUTHORIZED` | Token missing, wrong, revoked or expired — make a new token. |
 | 403 | `TOKEN_SCOPE` | The token lacks the scope this endpoint needs. |
 | 403 | `TOKEN_ROUTE` | This endpoint is not open to tokens at all. |
@@ -28,7 +29,8 @@ An endpoint with no scope works with any personal token (bot tokens: `chat:write
 | 403 | `FORBIDDEN` | The token owner may not do this (same rule as the web app). |
 | 404 | `NOT_FOUND` | Missing, or the owner cannot see it (the two look the same on purpose). |
 | 409 | `ISSUE_CONFLICT` | Someone changed the field since you read it (`base` did not match). Re-read, then ask. |
-| 429 | `TOO_MANY_REQUESTS` | Slow down; wait `Retry-After` seconds. |
+| 429 | `RATE_LIMITED` | Too many writes: chat posts at most 30 per minute per token (webhooks: per bot), other writes (issues, comments, fields, sprints, groups, documents) at most 120 per minute per token. Reads are not limited. Wait `Retry-After` seconds, then send the rest. |
+| 429 | `TOO_MANY_REQUESTS` | Another limit (e.g. too many @all mentions); wait `Retry-After` seconds if given. |
 
 Every refusal body is `{"result":"error","msg":"…","code":"…"}`; `msg` is a Korean sentence you can show to a person.
 
@@ -93,13 +95,18 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/ZEN-12"
 | Field | Where | Required | Description |
 |---|---|---|---|
 | `projectId` | json (JSON 본문) | yes | 프로젝트 번호 또는 키(예: ZEN) |
-| `title` | json (JSON 본문) | yes | 제목 |
-| `description` | json (JSON 본문) |  | 설명(마크다운) |
+| `title` | json (JSON 본문) | yes | 제목(300자까지) |
+| `description` | json (JSON 본문) |  | 설명(마크다운, 50,000자까지) |
 | `assigneeIds` | json (JSON 본문) |  | 담당자 번호 목록 |
 | `priority` | json (JSON 본문) |  | 우선순위(0~4 정수) |
 | `statusId` | json (JSON 본문) |  | 상태 번호(없으면 첫 상태) |
 | `startDate` | json (JSON 본문) |  | 시작일(YYYY-MM-DD) |
 | `dueDate` | json (JSON 본문) |  | 마감일(YYYY-MM-DD) |
+| `parentId` | json (JSON 본문) |  | 상위 이슈 키나 번호(같은 프로젝트의 이슈여야 해요. 이 이슈를 그 아래 하위 이슈로 만들어요) |
+| `typeId` | json (JSON 본문) |  | 이슈 유형 번호(GET /api/hub/fields/types) |
+| `labelIds` | json (JSON 본문) |  | 라벨 번호 목록(GET /api/hub/labels) |
+| `storyPoints` | json (JSON 본문) |  | 스토리 포인트(프로젝트 추정 방식이 스토리 포인트일 때) |
+| `estimateMinutes` | json (JSON 본문) |  | 추정 시간(분, 프로젝트 추정 방식이 시간일 때) |
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","title":"배포 실패 확인"}' "$ZENTA_URL/api/hub/issues"
@@ -113,7 +120,7 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 |---|---|---|---|
 | `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
 | `projectId` | json (JSON 본문) | yes | 그 이슈의 프로젝트 번호 또는 키 |
-| `patch` | json (JSON 본문) | yes | 바꿀 칸만 담은 객체(예: {"title":"새 제목"}). 칸: title · description · status(상태 번호) · assignees(사람 번호 목록) · priority(0~4) · startDate · dueDate |
+| `patch` | json (JSON 본문) | yes | 바꿀 칸만 담은 객체(예: {"title":"새 제목"}). 칸: title · description · status(상태 번호) · assignees(사람 번호 목록) · priority(0~4) · startDate · dueDate · labels(라벨 번호 목록, 통째로 바뀌고 빈 목록이면 다 떼요) · issueType(유형 번호, 빈 글자면 유형 없음) · storyPoints · estimateMinutes(둘 다 null 이면 추정 지우기) |
 | `base` | json (JSON 본문) |  | 보고 있던 값(그사이 바뀌었으면 409) |
 
 ```sh
@@ -128,7 +135,7 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 |---|---|---|---|
 | `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
 | `projectId` | json (JSON 본문) | yes | 그 이슈의 프로젝트 번호 또는 키 |
-| `body` | json (JSON 본문) | yes | 코멘트(마크다운) |
+| `body` | json (JSON 본문) | yes | 코멘트(마크다운, 20,000자까지) |
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","body":"배포 끝났어요"}' "$ZENTA_URL/api/hub/issues/ZEN-12/comments"
@@ -228,6 +235,122 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/users/search?projectId=ZEN&q=김"
 ```
 
+### `GET /api/hub/labels`
+
+라벨 목록(이슈에 붙일 때 쓸 번호) · scope: `issue:read`
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/labels"
+```
+
+### `GET /api/hub/sprints`
+
+스프린트 목록(이슈를 담을 때 쓸 번호) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 번호 또는 키. projectId · planId 중 하나는 필수예요 |
+| `planId` | query (주소 뒤 ?) |  | 계획 번호(그 계획에 든 프로젝트들의 스프린트) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/sprints?projectId=ZEN"
+```
+
+### `POST /api/hub/sprints/{id}/issues`
+
+이슈를 스프린트에 담기(다른 스프린트에 있던 이슈는 옮겨져요. 끝난 스프린트에는 못 담아요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 스프린트 번호 |
+| `projectId` | json (JSON 본문) | yes | 프로젝트 번호 또는 키 |
+| `issueIds` | json (JSON 본문) | yes | 이슈 번호 목록(이슈를 읽어 받은 id 예요. 키는 안 돼요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","issueIds":["ISSUEID"]}' "$ZENTA_URL/api/hub/sprints/SPRINTID/issues"
+```
+
+### `DELETE /api/hub/sprints/{id}/issues/{issueId}`
+
+이슈를 스프린트에서 빼기(이슈는 그대로예요. 끝난 스프린트에서는 못 빼요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 스프린트 번호 |
+| `issueId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/sprints/SPRINTID/issues/ZEN-12?projectId=ZEN"
+```
+
+### `GET /api/hub/issue-groups`
+
+프로젝트의 이슈 그룹 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issue-groups?projectId=ZEN"
+```
+
+### `POST /api/hub/issue-groups/{groupId}/issues`
+
+이슈를 그룹으로 옮기기(답의 moved 가 옮긴 수예요. 볼 수 없거나 다른 프로젝트의 이슈는 건너뛰어요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `groupId` | path (주소 안) | yes | 그룹 번호(목록의 id). none 이면 그룹에서 빼요 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `issueIds` | json (JSON 본문) | yes | 이슈 번호 목록(이슈를 읽어 받은 id 예요. 키는 안 돼요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"issueIds":["ISSUEID"]}' "$ZENTA_URL/api/hub/issue-groups/GROUPID/issues?projectId=ZEN"
+```
+
+### `GET /api/hub/issues/{id}/subtasks`
+
+이슈의 하위 이슈 목록(줄마다 그 아래 하위가 children 에 담겨요) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/ZEN-12/subtasks?projectId=ZEN"
+```
+
+### `POST /api/hub/issues/{id}/subtasks`
+
+이미 있는 이슈를 하위 이슈로 잇기(다른 상위 아래 있었으면 옮겨져요. 새로 만들려면 이슈 만들기의 parentId) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 상위가 될 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | json (JSON 본문) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+| `childId` | json (JSON 본문) | yes | 하위로 넣을 이슈 키 또는 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","childId":"ZEN-13"}' "$ZENTA_URL/api/hub/issues/ZEN-12/subtasks"
+```
+
+### `DELETE /api/hub/issues/{id}/subtasks/{childId}`
+
+하위 이슈를 상위에서 끊기(두 이슈는 그대로 남아요. 그 상위의 하위가 아니면 404) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 상위 이슈 키(예: ZEN-12) 또는 번호 |
+| `childId` | path (주소 안) | yes | 끊을 하위 이슈 키 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/issues/ZEN-12/subtasks/ZEN-13?projectId=ZEN"
+```
+
 ### `GET /api/v1/streams`
 
 내가 든 채널 목록 · scope: `chat:read`
@@ -253,12 +376,12 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -G --data-urlencode 'narrow=[{"oper
 
 ### `POST /api/v1/messages`
 
-채널에 메시지 보내기(봇 토큰은 봇이 든 채널에만) · scope: `chat:write`
+채널에 메시지 보내기(토큰 하나에 1분 30개까지, 봇 토큰은 봇이 든 채널에만) · scope: `chat:write`
 
 | Field | Where | Required | Description |
 |---|---|---|---|
 | `to` | form (폼 본문) | yes | 채널 번호 또는 이름 |
-| `content` | form (폼 본문) | yes | 보낼 글(마크다운) |
+| `content` | form (폼 본문) | yes | 보낼 글(마크다운, 10,000자까지) |
 | `parent_id` | form (폼 본문) |  | 답글을 달 메시지 번호 |
 
 ```sh
@@ -309,15 +432,15 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/wiki/DOCID?proj
 
 ### `POST /api/hub/wiki`
 
-문서 만들기(본문은 doc 트리로 — body 만 보내면 거절돼요) · scope: `doc:write`
+문서 만들기(본문은 doc 트리로 보내요. body 만 보내면 거절돼요) · scope: `doc:write`
 
 | Field | Where | Required | Description |
 |---|---|---|---|
 | `projectId` | json (JSON 본문) |  | 프로젝트 번호 또는 키(회사 문서면 빼고 scope 를 org 로) |
 | `scope` | json (JSON 본문) |  | 회사 문서면 org |
-| `title` | json (JSON 본문) | yes | 제목 |
-| `doc` | json (JSON 본문) | yes | 문서 내용(트리) — 이것이 문서의 정본이에요. 없으면 「문서 내용이 비어 있어요」로 거절돼요. 가장 작은 모양: {"v":1,"eol":false,"blocks":[{"id":"b1","kind":"paragraph","spans":[{"kind":"text","text":"글"}]}]} (블록 id 는 비지 않고 겹치지 않게). 스킬 도우미(zenta.mjs)의 --markdown 이 마크다운에서 만들어 줘요 |
-| `body` | json (JSON 본문) |  | doc 과 같은 내용의 마크다운(검색·판 비교에 써요). doc 만 바꾸고 body 를 안 맞추면 검색이 틀어져요 |
+| `title` | json (JSON 본문) | yes | 제목(200자까지) |
+| `doc` | json (JSON 본문) | yes | 문서 내용 트리이고 없으면 문서 내용이 비었다며 거절돼요. 가장 작은 모양은 {"v":1,"eol":false,"blocks":[{"id":"b1","kind":"paragraph","spans":[{"kind":"text","text":"글"}]}]} 이고(블록 id 는 비지 않고 겹치지 않게) 스킬 도우미(zenta.mjs)의 --markdown 이 마크다운에서 만들어 줘요 |
+| `body` | json (JSON 본문) |  | doc 과 같은 내용의 마크다운(200,000자까지, 검색·판 비교에 써요). doc 만 바꾸고 body 를 안 맞추면 검색이 틀어져요 |
 | `parentId` | json (JSON 본문) |  | 이 문서 아래에 만들기(번호) |
 
 ```sh
@@ -333,9 +456,9 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 | `id` | path (주소 안) | yes | 문서 번호 |
 | `projectId` | json (JSON 본문) |  | 프로젝트 문서면 프로젝트 번호나 키(회사 문서면 scope 를 org 로) |
 | `scope` | json (JSON 본문) |  | 회사 문서면 org |
-| `title` | json (JSON 본문) | yes | 제목 |
-| `doc` | json (JSON 본문) | yes | 바꾼 뒤의 문서 내용 전체(트리) — 통째로 바꿔요. 덧붙이려면 읽은 doc.blocks 뒤에 블록을 더해 보내요. 없으면 「문서 내용이 비어 있어요」로 거절돼요. 가장 작은 모양: {"v":1,"eol":false,"blocks":[{"id":"b1","kind":"paragraph","spans":[{"kind":"text","text":"글"}]}]} (블록 id 는 비지 않고 겹치지 않게). 스킬 도우미(zenta.mjs)의 --markdown 이 마크다운에서 만들어 줘요 |
-| `body` | json (JSON 본문) | yes | doc 과 같은 내용의 마크다운 전체(검색·판 비교에 써요) |
+| `title` | json (JSON 본문) | yes | 제목(200자까지) |
+| `doc` | json (JSON 본문) | yes | 바꾼 뒤의 문서 내용 전체 트리로 통째로 바뀌니, 덧붙이려면 읽은 doc.blocks 뒤에 블록을 더해 보내요(없으면 거절돼요). 가장 작은 모양은 {"v":1,"eol":false,"blocks":[{"id":"b1","kind":"paragraph","spans":[{"kind":"text","text":"글"}]}]} 이고(블록 id 는 비지 않고 겹치지 않게) 스킬 도우미(zenta.mjs)의 --markdown 이 마크다운에서 만들어 줘요 |
+| `body` | json (JSON 본문) | yes | doc 과 같은 내용의 마크다운 전체(200,000자까지, 검색·판 비교에 써요) |
 | `revision` | json (JSON 본문) | yes | 읽을 때 받은 판 번호 |
 
 ```sh

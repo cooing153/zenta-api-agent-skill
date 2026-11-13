@@ -33,6 +33,8 @@ $Z POST /api/hub/issues --json '{"projectId":"ZEN","title":"배포 실패 확인
 - If `partialFailures` is not empty, the issue exists but those fields were not saved — tell the user which and why
   (`message`), do not create it again.
 - `priority` is 0–4. `assigneeIds` takes person ids (see «Assign»).
+- Optional: `parentId` (make it a sub-issue of that issue — key or id), `typeId` (`/api/hub/fields/types`),
+  `labelIds` (`/api/hub/labels`), `storyPoints` or `estimateMinutes` (whichever the project estimates in).
 
 ## Comment (`issue:write`)
 
@@ -53,7 +55,11 @@ $Z POST /api/hub/issues/ZEN-12 --json '{"projectId":"ZEN","patch":{"title":"새 
 
 - `409 ISSUE_CONFLICT`: someone changed it after you read. The answer's `conflict` says which field, who and their
   value. Show it to the user and ask before sending again.
-- Fields: `title` · `description` · `status` · `assignees` · `priority` · `startDate` · `dueDate`.
+- Fields: `title` · `description` · `status` · `assignees` · `priority` · `startDate` · `dueDate` · `labels` ·
+  `issueType` · `storyPoints` · `estimateMinutes`.
+- One token may send at most 120 writes per minute (issues, comments, fields, sprints, groups, documents — chat
+  posts have their own limit of 30). The next one gets `429 RATE_LIMITED` with `Retry-After`; wait that long
+  (`--retry` does) instead of retrying at once.
 - `{"noLongerVisible": true}` means the change hid the issue from you (e.g. you removed yourself); it was saved.
 
 ## Change status (`issue:read` + `issue:write`)
@@ -90,6 +96,49 @@ $Z GET /api/hub/fields/definitions --query projectId=ZEN     # [{id, name, type,
 $Z GET /api/hub/fields/values/ZEN-12
 $Z POST /api/hub/fields/values/ZEN-12 --json '{"values":[{"fieldId":"<id>","value":"높음"}]}'
 ```
+
+## Labels, sprints, groups, sub-issues (`issue:read` / `issue:write`)
+
+Look the thing up first, then send its `id`. Sprint and group writes take the issue's **`id`** (the number you get
+when you read the issue), not its key.
+
+```sh
+$Z GET /api/hub/labels                                         # {labels: [{id, name, color}]}
+$Z POST /api/hub/issues/ZEN-12 --json '{"projectId":"ZEN","patch":{"labels":["<label id>","<label id>"]},"base":{"labels":["<label id>"]}}'
+
+$Z GET /api/hub/sprints --query projectId=ZEN                  # [{id, name, state, startsAt, endsAt, …}]
+$Z POST /api/hub/sprints/<sprint id>/issues --json '{"projectId":"ZEN","issueIds":["<issue id>"]}'
+
+$Z GET /api/hub/issue-groups --query projectId=ZEN             # {groups: [{id, name, color, issueCount}]}
+$Z POST /api/hub/issue-groups/<group id>/issues --query projectId=ZEN --json '{"issueIds":["<issue id>"]}'
+$Z POST /api/hub/issue-groups/none/issues --query projectId=ZEN --json '{"issueIds":["<issue id>"]}'   # out of any group
+
+$Z GET /api/hub/issues/ZEN-12/subtasks --query projectId=ZEN   # {subtasks: [{id, key, title, status, assignees, children: […]}]}
+$Z POST /api/hub/issues --json '{"projectId":"ZEN","title":"로그인 오류 문구 정리","parentId":"ZEN-12"}'   # new sub-issue
+$Z POST /api/hub/issues/ZEN-12/subtasks --json '{"projectId":"ZEN","childId":"ZEN-13"}'                 # existing issue → sub-issue
+```
+
+- `labels` in a patch **replaces the whole list**: send every label the issue should keep; `[]` removes all.
+- Putting an issue into a sprint **moves** it out of the sprint it was in. An issue is in one group at a time.
+- All of these writes need the token owner to be allowed to edit issues in that project (`403 FORBIDDEN` otherwise).
+  A finished sprint takes no new issues (`400`).
+- A group move answers `{"moved": n}`. If `n` is smaller than the number you sent, some issues were skipped (not
+  visible to the owner, or in another project) — tell the user how many moved, not «all done».
+- `POST …/subtasks` on an issue that already has a parent **moves** it under the new parent. The parent must be in
+  the same project (also for `parentId` when creating; otherwise the issue is created and `partialFailures` says so).
+- Label ids must exist: an unknown id or a label *name* answers `400`. On create, a label the owner may not set is
+  left off and reported in `partialFailures`.
+- **Taking things out** (confirm with the user first; the helper wants `--yes` on a `DELETE`). Nothing is deleted —
+  the issues stay, and putting them back restores the link:
+
+  ```sh
+  $Z DELETE /api/hub/sprints/<sprint id>/issues/ZEN-12 --query projectId=ZEN --yes    # back to the backlog (204)
+  $Z DELETE /api/hub/issues/ZEN-12/subtasks/ZEN-13 --query projectId=ZEN --yes        # ZEN-13 is no longer under ZEN-12 (204)
+  ```
+
+  An issue that is not in that sprint, or not a sub-issue of that parent, answers `404`. A finished sprint cannot
+  be changed (`400`). Leaving a group is the `none` call above.
+- Creating, renaming or deleting labels, sprints and groups is done in Zenta, not with a token.
 
 ## Read and search documents (`doc:read`)
 
@@ -132,7 +181,10 @@ $Z POST /api/v1/messages --form to=배포알림 --form content='배포가 끝났
 $Z POST /api/v1/messages --form to=배포알림 --form content='확인했어요' --form parent_id=<message id>   # reply
 ```
 
-Posting notifies people — confirm the channel and text first. Blank messages are refused.
+Posting notifies people — confirm the channel and text first. Blank messages and messages over 10,000 characters
+are refused (`400`). One token may post at most 30 messages per minute (the first 30 go at once); the 31st gets
+`429 RATE_LIMITED` with `Retry-After` = seconds until a slot frees. Wait that long (`--retry` does), then send the
+rest — or put many lines into one message instead.
 
 ## Post as a bot (`bot token`)
 
@@ -149,7 +201,7 @@ copy its address (shown once). The address itself is the secret:
 curl -X POST -H 'Content-Type: application/json' -d '{"text":"배포가 끝났어요"}' "$ZENTA_HOOK_URL"
 ```
 
-At most 30 messages per minute per bot (then `429` with `Retry-After`).
+At most 30 messages per minute per bot (then `429 RATE_LIMITED` with `Retry-After`), 10,000 characters each.
 
 ## Outgoing webhooks (Zenta calls you)
 
