@@ -138,7 +138,38 @@ $Z POST /api/hub/issues/ZEN-12/subtasks --json '{"projectId":"ZEN","childId":"ZE
 
   An issue that is not in that sprint, or not a sub-issue of that parent, answers `404`. A finished sprint cannot
   be changed (`400`). Leaving a group is the `none` call above.
-- Creating, renaming or deleting labels, sprints and groups is done in Zenta, not with a token.
+- Deleting labels, sprints and groups is done in Zenta, not with a token.
+
+## Make and change groups, labels, sprints (`issue:write`)
+
+```sh
+$Z POST /api/hub/issue-groups --query projectId=ZEN --json '{"name":"백엔드","color":"blue"}'       # → {id, name, color, …}
+$Z PATCH /api/hub/issue-groups/<group id> --query projectId=ZEN --json '{"name":"서버"}'
+$Z PUT /api/hub/issue-groups/order --query projectId=ZEN --json '{"order":["<group id>","<group id>"]}'   # 204
+$Z GET /api/hub/issue-groups/<group id>/issues --query projectId=ZEN                                 # {issueIds: […]}
+$Z POST /api/hub/issues --json '{"projectId":"ZEN","title":"로그인 오류 고치기","groupId":"<group id>"}'   # new issue, already in the group
+
+$Z POST /api/hub/labels --json '{"name":"긴급","color":"#d92d20"}'                                    # org admins only
+$Z POST /api/hub/labels/<label id> --json '{"name":"아주 긴급"}'
+
+$Z POST /api/hub/sprints --json '{"projectId":"ZEN","name":"11월 2주","startsAt":"2026-11-16","endsAt":"2026-11-27"}'
+$Z POST /api/hub/sprints/<sprint id> --json '{"projectId":"ZEN","name":"11월 2주","startsAt":"2026-11-16","endsAt":"2026-11-30"}'
+$Z POST '/api/hub/sprints/<sprint id>/start?projectId=ZEN'
+$Z POST /api/hub/sprints/<sprint id>/complete --query projectId=ZEN --json '{"carryOverTo":"<next sprint id>"}'
+$Z GET /api/hub/sprints/<sprint id>/issues --query projectId=ZEN
+$Z GET /api/hub/sprints/backlog --query projectId=ZEN                                                # issues in no sprint: {items, hasMore, nextOffset}
+```
+
+- **Groups**: colors are `gray` `blue` `green` `amber` `red` `violet`. `order` must list **every** group of the
+  project, each once — read the list first; anything else answers `400`. To add an issue to a group in one call,
+  create it with `groupId`; if the group does not exist in that project the issue is still created, outside any
+  group, and `partialFailures` says so.
+- **Labels** belong to the whole organization, so only an organization admin's token may make or rename one
+  (`403` otherwise). Check `GET /api/hub/labels` first — do not make a second label with the same meaning.
+- **Sprints**: editing sends name and both dates together. Starting works on a sprint that has not started yet
+  (a project may have several in progress). **Finishing a sprint cannot be undone**: issues that are not done go to `carryOverTo`, or out
+  of any sprint when you leave it out — the answer says how many of them the owner can see (`carriedOver`). Confirm with the user before
+  starting or finishing one.
 
 ## Releases, milestones, relations, time logs (`issue:read` / `issue:write`)
 
@@ -177,8 +208,33 @@ $Z PATCH /api/hub/timelogs/<time log id> --json '{"minutes":120,"workedOn":"2026
   kept — `workedOn` becomes today and `note` becomes empty. Read the log first and send back what should stay.
   The issue of a log cannot be changed. A log whose issue the owner can no longer see answers `404`, like a log
   that does not exist.
-- Taking an issue out of a release or milestone, removing a relation, deleting a time log, and creating or editing
-  releases and milestones are not possible with a token — tell the user to do those in Zenta.
+- Deleting a time log, a release or a milestone is not possible with a token — tell the user to do it in Zenta.
+
+Make, change and take out:
+
+```sh
+$Z POST /api/hub/releases --json '{"projectId":"ZEN","name":"1.4.0","releaseDate":"2026-12-01"}'
+$Z POST /api/hub/releases/<release id> --query projectId=ZEN --json '{"releaseDate":"2026-12-08"}'    # only the fields you send
+$Z POST /api/hub/releases/<release id>/release --query projectId=ZEN --json '{"moveTo":"<next release id>"}'
+$Z DELETE /api/hub/releases/<release id>/issues/ZEN-12 --query projectId=ZEN --yes
+
+$Z POST /api/hub/milestones --query projectId=ZEN --json '{"name":"베타 공개","dueOn":"2026-12-15"}'
+$Z GET /api/hub/milestones/<milestone id> --query projectId=ZEN
+$Z POST /api/hub/milestones/<milestone id> --query projectId=ZEN --json '{"name":"베타 공개","dueOn":"2026-12-15","state":"reached"}'
+$Z DELETE /api/hub/milestones/<milestone id>/issues/ZEN-12 --query projectId=ZEN --yes               # 204
+
+$Z DELETE /api/hub/issues/ZEN-12/relations/blocking/ZEN-13 --query projectId=ZEN --yes                # 204
+```
+
+- **Shipping a release (`…/release`) cannot be undone**, and a shipped release can no longer be edited or have
+  issues taken out. Issues that are not done move to `moveTo`, or out of any release when you leave it out. Always
+  confirm with the user first.
+- **Editing a milestone replaces all of it**: send `name`, `description`, `dueOn` and `state` together (`open` ·
+  `reached` · `missed`). A field you leave out becomes empty and `state` goes back to `open` — read it first
+  (`GET …/<milestone id>`). Editing a release changes only what you send.
+- Taking an issue out of a release or milestone, or removing a relation, deletes nothing: the issues stay, and
+  adding again restores it. Removing a relation uses the same `kind` it was made with, from the same side; one that
+  is not there answers `404`.
 
 ## Attachments (`issue:read` / `issue:write`)
 

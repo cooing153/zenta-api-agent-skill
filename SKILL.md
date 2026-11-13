@@ -92,9 +92,11 @@ Things that trip people up:
   Sprint and group writes take the issue's **id**, not its key. `labels` in a patch replaces the whole list.
   Taking an issue out of a sprint or unlinking a sub-issue is a `DELETE` (needs `--yes`; confirm with the user
   first). Nothing is deleted — the issues stay.
-- Releases, milestones, relations, time logs: read them and add to them (`/api/hub/releases`, `/api/hub/milestones`,
-  `/api/hub/issues/<key>/relations`, `/api/hub/timelogs`). Editing a time log replaces all of it — send every field.
-  Removing any of these is not possible with a token.
+- Releases, milestones, relations, time logs: read, make, change, add to and take out of them (`/api/hub/releases`,
+  `/api/hub/milestones`, `/api/hub/issues/<key>/relations`, `/api/hub/timelogs`). Editing a time log or a milestone
+  replaces all of it — send every field. Shipping a release and finishing a sprint cannot be undone: confirm first.
+- Groups, labels and sprints can be made and changed too; an issue can be created straight into a group
+  (`groupId`). **Deleting** any of these — or a release, milestone or time log — is not possible with a token.
 - Attachments: list with `/api/hub/issues/<key>/attachments`, download by the row's `publicId` with `--out <file>`, upload with
   `--file <file>` (one per call; confirm first). Deleting an attachment is not possible with a token.
 - Documents: the page content is the `doc` field (a block tree); `body` is only its markdown mirror, and a write

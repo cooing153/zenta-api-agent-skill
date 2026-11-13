@@ -1,7 +1,7 @@
 {
   "name": "zenta-api",
   "displayName": "Zenta API",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Let Claude work in Zenta (젠타) with an API token: issues, comments, status, assignees, labels, sprints, groups, sub-issues, documents and chat messages.",
   "author": { "name": "Flean Labs" },
   "homepage": "https://github.com/cooing153/zenta-api-agent-skill",

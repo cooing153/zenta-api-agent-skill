@@ -15,7 +15,7 @@ import { basename } from 'node:path'
 import { docFromMarkdown, markdownFromDoc, pagePayload, unwritableKinds } from './markdown-doc.mjs'
 
 const SERVICE_URL = 'https://board.zentaoffice.com'
-const VERSION = '1.7.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
+const VERSION = '1.8.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
 const HELP = `사용법: node zenta.mjs <check | METHOD PATH> [옵션]
   --query k=v        주소 뒤 ?k=v (여러 번)
   --json '<JSON>'    JSON 본문

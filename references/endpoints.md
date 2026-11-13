@@ -105,6 +105,7 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/ZEN-12"
 | `parentId` | json (JSON 본문) |  | 상위 이슈 키나 번호(같은 프로젝트의 이슈여야 해요. 이 이슈를 그 아래 하위 이슈로 만들어요) |
 | `typeId` | json (JSON 본문) |  | 이슈 유형 번호(GET /api/hub/fields/types) |
 | `labelIds` | json (JSON 본문) |  | 라벨 번호 목록(GET /api/hub/labels) |
+| `groupId` | json (JSON 본문) |  | 넣을 이슈 그룹 번호(그룹 목록의 id). 못 넣으면 partialFailures 에 적혀요 |
 | `storyPoints` | json (JSON 본문) |  | 스토리 포인트(프로젝트 추정 방식이 스토리 포인트일 때) |
 | `estimateMinutes` | json (JSON 본문) |  | 추정 시간(분, 프로젝트 추정 방식이 시간일 때) |
 
@@ -547,6 +548,306 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -L -o 받은파일 "$ZENTA_URL/api/
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -F "file=@보고서.pdf" "$ZENTA_URL/api/hub/issues/ZEN-12/attachments"
+```
+
+### `POST /api/hub/issue-groups`
+
+이슈 그룹 만들기(한 프로젝트에 50개까지) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `name` | json (JSON 본문) | yes | 그룹 이름 |
+| `color` | json (JSON 본문) |  | gray · blue · green · amber · red · violet 중 하나. 빼면 gray 예요 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"name":"백엔드","color":"blue"}' "$ZENTA_URL/api/hub/issue-groups?projectId=ZEN"
+```
+
+### `PATCH /api/hub/issue-groups/{groupId}`
+
+이슈 그룹 이름·색 바꾸기(보낸 칸만 바뀌어요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `groupId` | path (주소 안) | yes | 그룹 번호(그룹 목록의 id) |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `name` | json (JSON 본문) |  | 새 이름 |
+| `color` | json (JSON 본문) |  | gray · blue · green · amber · red · violet 중 하나 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"name":"서버"}' "$ZENTA_URL/api/hub/issue-groups/GROUPID?projectId=ZEN"
+```
+
+### `PUT /api/hub/issue-groups/order`
+
+이슈 그룹 순서 바꾸기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `order` | json (JSON 본문) | yes | 그 프로젝트의 그룹 번호 전부를 새 순서대로 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"order":["GROUPID2","GROUPID1"]}' "$ZENTA_URL/api/hub/issue-groups/order?projectId=ZEN"
+```
+
+### `GET /api/hub/issue-groups/{groupId}/issues`
+
+그룹에 든 이슈 번호 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `groupId` | path (주소 안) | yes | 그룹 번호(그룹 목록의 id) |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issue-groups/GROUPID/issues?projectId=ZEN"
+```
+
+### `POST /api/hub/labels`
+
+라벨 만들기(조직 관리자만 돼요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `name` | json (JSON 본문) | yes | 라벨 이름 |
+| `color` | json (JSON 본문) |  | 색(#rrggbb) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"name":"긴급","color":"#d92d20"}' "$ZENTA_URL/api/hub/labels"
+```
+
+### `POST /api/hub/labels/{id}`
+
+라벨 이름·색 바꾸기(조직 관리자만, 보낸 칸만 바뀌어요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 라벨 번호 |
+| `name` | json (JSON 본문) |  | 새 이름 |
+| `color` | json (JSON 본문) |  | 색(#rrggbb) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"name":"아주 긴급"}' "$ZENTA_URL/api/hub/labels/LABELID"
+```
+
+### `POST /api/hub/sprints`
+
+스프린트 만들기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | json (JSON 본문) | yes | 프로젝트 번호 또는 키 |
+| `name` | json (JSON 본문) | yes | 스프린트 이름 |
+| `startsAt` | json (JSON 본문) | yes | 시작일(YYYY-MM-DD) |
+| `endsAt` | json (JSON 본문) | yes | 끝나는 날(YYYY-MM-DD) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","name":"11월 2주","startsAt":"2026-11-16","endsAt":"2026-11-27"}' "$ZENTA_URL/api/hub/sprints"
+```
+
+### `POST /api/hub/sprints/{id}`
+
+스프린트 이름·기간 바꾸기(세 칸을 함께 보내요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 스프린트 번호 |
+| `projectId` | json (JSON 본문) | yes | 프로젝트 번호 또는 키 |
+| `name` | json (JSON 본문) | yes | 스프린트 이름 |
+| `startsAt` | json (JSON 본문) | yes | 시작일(YYYY-MM-DD) |
+| `endsAt` | json (JSON 본문) | yes | 끝나는 날(YYYY-MM-DD) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","name":"11월 2주","startsAt":"2026-11-16","endsAt":"2026-11-30"}' "$ZENTA_URL/api/hub/sprints/SPRINTID"
+```
+
+### `POST /api/hub/sprints/{id}/start`
+
+스프린트 시작하기(시작 전인 스프린트만 돼요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 스프린트 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/sprints/SPRINTID/start?projectId=ZEN"
+```
+
+### `POST /api/hub/sprints/{id}/complete`
+
+스프린트 끝내기(못 끝낸 이슈는 다음 스프린트로 넘기거나 스프린트 없음으로 가요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 스프린트 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `carryOverTo` | json (JSON 본문) |  | 못 끝낸 이슈를 넘길 스프린트 번호. 빼면 스프린트 없음으로 가요 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"carryOverTo":"NEXTSPRINTID"}' "$ZENTA_URL/api/hub/sprints/SPRINTID/complete?projectId=ZEN"
+```
+
+### `GET /api/hub/sprints/{id}/issues`
+
+스프린트에 담긴 이슈 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 스프린트 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/sprints/SPRINTID/issues?projectId=ZEN"
+```
+
+### `GET /api/hub/sprints/backlog`
+
+스프린트에 안 담긴 이슈 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `offset` | query (주소 뒤 ?) |  | 몇 개를 건너뛰고(이어 읽기) |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 몇 개 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/sprints/backlog?projectId=ZEN"
+```
+
+### `POST /api/hub/releases`
+
+릴리스 만들기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | json (JSON 본문) | yes | 프로젝트 번호 또는 키 |
+| `name` | json (JSON 본문) | yes | 릴리스 이름(예: 1.4.0) |
+| `description` | json (JSON 본문) |  | 설명 |
+| `releaseDate` | json (JSON 본문) |  | 출시 예정일(YYYY-MM-DD) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","name":"1.4.0","releaseDate":"2026-12-01"}' "$ZENTA_URL/api/hub/releases"
+```
+
+### `POST /api/hub/releases/{id}`
+
+릴리스 이름·설명·날짜 바꾸기(보낸 칸만 바뀌어요. 출시한 릴리스는 못 바꿔요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 릴리스 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `name` | json (JSON 본문) |  | 새 이름 |
+| `description` | json (JSON 본문) |  | 새 설명 |
+| `releaseDate` | json (JSON 본문) |  | 출시 예정일(YYYY-MM-DD). 빈 글자면 날짜를 지워요 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"releaseDate":"2026-12-08"}' "$ZENTA_URL/api/hub/releases/RELEASEID?projectId=ZEN"
+```
+
+### `POST /api/hub/releases/{id}/release`
+
+릴리스 출시하기(되돌릴 수 없어요. 못 끝낸 이슈는 다른 릴리스로 넘기거나 릴리스 없음으로 가요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 릴리스 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `moveTo` | json (JSON 본문) |  | 못 끝낸 이슈를 넘길 릴리스 번호. 빼면 릴리스 없음으로 가요 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"moveTo":"NEXTRELEASEID"}' "$ZENTA_URL/api/hub/releases/RELEASEID/release?projectId=ZEN"
+```
+
+### `DELETE /api/hub/releases/{id}/issues/{issueId}`
+
+이슈를 릴리스에서 빼기(이슈는 그대로예요. 출시한 릴리스에서는 못 빼요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 릴리스 번호 |
+| `issueId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/releases/RELEASEID/issues/ZEN-12?projectId=ZEN"
+```
+
+### `POST /api/hub/milestones`
+
+마일스톤 만들기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `name` | json (JSON 본문) | yes | 마일스톤 이름 |
+| `description` | json (JSON 본문) |  | 설명 |
+| `dueOn` | json (JSON 본문) |  | 목표일(YYYY-MM-DD) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"name":"베타 공개","dueOn":"2026-12-15"}' "$ZENTA_URL/api/hub/milestones?projectId=ZEN"
+```
+
+### `GET /api/hub/milestones/{id}`
+
+마일스톤 하나 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 마일스톤 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/milestones/MILESTONEID?projectId=ZEN"
+```
+
+### `POST /api/hub/milestones/{id}`
+
+마일스톤 고치기(네 칸이 통째로 바뀌어요. 뺀 칸은 비고 상태는 open 이 돼요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 마일스톤 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `name` | json (JSON 본문) | yes | 마일스톤 이름 |
+| `description` | json (JSON 본문) |  | 설명 |
+| `dueOn` | json (JSON 본문) |  | 목표일(YYYY-MM-DD) |
+| `state` | json (JSON 본문) |  | open(진행 중) · reached(이룸) · missed(놓침) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"name":"베타 공개","dueOn":"2026-12-15","state":"reached"}' "$ZENTA_URL/api/hub/milestones/MILESTONEID?projectId=ZEN"
+```
+
+### `DELETE /api/hub/milestones/{id}/issues/{issueId}`
+
+이슈를 마일스톤에서 빼기(이슈는 그대로예요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 마일스톤 번호 |
+| `issueId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/milestones/MILESTONEID/issues/ZEN-12?projectId=ZEN"
+```
+
+### `DELETE /api/hub/issues/{taskId}/relations/{kind}/{otherId}`
+
+이슈 관계 끊기(두 이슈는 그대로예요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `kind` | path (주소 안) | yes | 맺을 때 쓴 관계 종류(예: blocking · related) |
+| `otherId` | path (주소 안) | yes | 상대 이슈 키 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/issues/ZEN-12/relations/blocking/ZEN-13?projectId=ZEN"
 ```
 
 ### `GET /api/v1/streams`
