@@ -2,7 +2,7 @@
 
 # Zenta API reference
 
-Every request sends `Authorization: Bearer $ZENTA_TOKEN` to `$ZENTA_URL`. A token can call only the endpoints below, only with the scopes it was given, and never more than its owner may do in the web app.
+Every request sends `Authorization: Bearer $ZENTA_TOKEN` to `$ZENTA_URL` (the Zenta service address — the helper fills it in; see SKILL.md). A token can call only the endpoints below, only with the scopes it was given, and never more than its owner may do in the web app.
 
 ## Scopes
 
@@ -625,6 +625,19 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/messages/MESSAGE
 curl -H "Authorization: Bearer $ZENTA_TOKEN" --data-urlencode "emoji_name=+1" "$ZENTA_URL/api/v1/messages/MESSAGEID/reactions"
 ```
 
+### `DELETE /api/v1/messages/{id}/reactions`
+
+내가 단 반응 빼기(남이 단 반응은 못 빼요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+| `emoji_name` | query (주소 뒤 ?) | yes | 뺄 이모지 이름(달 때 쓴 이름) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE -G --data-urlencode "emoji_name=+1" "$ZENTA_URL/api/v1/messages/MESSAGEID/reactions"
+```
+
 ### `GET /api/v1/emoji`
 
 반응에 쓸 수 있는 이모지 이름 목록(3천 개쯤이라 답이 커요) · scope: `chat:read`
@@ -646,6 +659,19 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/emoji"
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/notifications?source=board&unread=1"
+```
+
+### `POST /api/hub/notifications/{id}/read`
+
+알림 하나를 읽음으로(source 로 고른 곳의 쓰기 권한이 있어야 해요) · scope: any personal token
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 알림 번호(알림함 읽기의 id) |
+| `source` | query (주소 뒤 ?) | yes | 그 알림을 읽은 곳과 같은 값. board(issue:write) · doc(doc:write) · chat(chat:write) 중 하나 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/notifications/NOTICEID/read?source=board"
 ```
 
 ### `GET /api/hub/wiki`

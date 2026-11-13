@@ -8,12 +8,14 @@
 //   node zenta.mjs POST /api/hub/issues/ZEN-12/attachments --file ./보고서.pdf
 //   node zenta.mjs GET  /api/hub/issues/ZEN-12/attachments/<publicId>/download --out ./보고서.pdf
 //
-// Reads ZENTA_URL and ZENTA_TOKEN (or ZENTA_TOKEN_FILE) from the environment. Never prints the token.
+// Talks to the Zenta service (SERVICE_URL) with ZENTA_TOKEN (or ZENTA_TOKEN_FILE) from the environment.
+// Never prints the token. ZENTA_URL is a developer override (tests, a local server) — users do not set it.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { docFromMarkdown, markdownFromDoc, pagePayload, unwritableKinds } from './markdown-doc.mjs'
 
-const VERSION = '1.5.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
+const SERVICE_URL = 'https://board.zentaoffice.com'
+const VERSION = '1.7.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
 const HELP = `사용법: node zenta.mjs <check | METHOD PATH> [옵션]
   --query k=v        주소 뒤 ?k=v (여러 번)
   --json '<JSON>'    JSON 본문
@@ -25,7 +27,12 @@ const HELP = `사용법: node zenta.mjs <check | METHOD PATH> [옵션]
   --out <파일>       받은 내용을 파일로 저장(첨부 내려받기). 이미 있는 파일은 덮어쓰지 않아요
   --retry            429 면 Retry-After 만큼 기다렸다가 두 번까지 다시
   --yes              빼기·지우기(DELETE)를 정말 보낼 때
-환경: ZENTA_URL (예: https://zenta.example.com) · ZENTA_TOKEN 또는 ZENTA_TOKEN_FILE`
+환경: ZENTA_TOKEN 또는 ZENTA_TOKEN_FILE`
+
+// What to do when the server answers with a redirect: with the service address there is nothing for the user to fix.
+const MOVED_TIP = (process.env.ZENTA_URL ?? '').trim()
+  ? 'ZENTA_URL 을 따로 넣어 두었어요. 지우면 젠타 서비스 주소를 써요.'
+  : '잠시 뒤에 다시 해 보고, 계속되면 젠타에 알려 주세요.'
 
 const out = (s) => process.stdout.write(s + '\n')
 const err = (s) => process.stderr.write(s + '\n')
@@ -61,7 +68,7 @@ function token() {
 
 function base() {
   const raw = (process.env.ZENTA_URL ?? '').trim().replace(/\/+$/, '')
-  if (!raw) fail('ZENTA_URL 이 비어 있어요. 회사 젠타 주소를 넣어 주세요(예: https://zenta.example.com).')
+  if (!raw) return SERVICE_URL
   let u
   try {
     u = new URL(raw)
@@ -259,7 +266,7 @@ async function request(method, path, a) {
       await new Promise((res) => setTimeout(res, wait * 1000))
       continue
     }
-    if (r.status >= 300 && r.status < 400) fail(`주소가 다른 곳으로 넘어가요(${r.status}). ZENTA_URL 이 맞는지 확인해 주세요.`, 1)
+    if (r.status >= 300 && r.status < 400) fail(`주소가 다른 곳으로 넘어가요(${r.status}). ${MOVED_TIP}`, 1)
     if (r.status >= 400 || data?.result === 'error') {
       err(hide(explain(r.status, data, r.headers)))
       process.exit(1)
@@ -298,7 +305,7 @@ if (cmd === 'check') {
     out('봇은 조직 관리자가 그 봇을 넣어 둔 채널에만 글을 보낼 수 있어요. 이슈·문서·채널 읽기는 개인 토큰이 필요해요.')
     out('실제로 보내지는지는 사람에게 확인받은 뒤 그 채널에 글을 한 번 보내 보면 알 수 있어요(POST /api/v1/messages).')
   } else if (r.status >= 300 && r.status < 400) {
-    fail(`주소가 다른 곳으로 넘어가요(${r.status}). ZENTA_URL 이 맞는지 확인해 주세요.`, 1)
+    fail(`주소가 다른 곳으로 넘어가요(${r.status}). ${MOVED_TIP}`, 1)
   } else {
     err(hide(explain(r.status, data, r.headers)))
     process.exit(1)

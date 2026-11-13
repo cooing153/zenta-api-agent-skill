@@ -19,14 +19,14 @@ Run the helper's check. The helper sits next to this file: `scripts/zenta.mjs` i
 node <skill folder>/scripts/zenta.mjs check
 ```
 
-- It reads `ZENTA_URL` (the company's Zenta address, e.g. `https://zenta.example.com`) and `ZENTA_TOKEN`
-  (or `ZENTA_TOKEN_FILE`, a file holding the token).
+- It talks to the Zenta service at `https://board.zentaoffice.com` (issues, documents and chat alike) and reads
+  `ZENTA_TOKEN` (or `ZENTA_TOKEN_FILE`, a file holding the token). There is no address to set.
 - A **personal token** prints «개인 토큰이에요 · 주인: …» and the owner's details. A **bot token** prints
   «봇 토큰이에요 · 범위: chat:write …» — that is a success too: the token works, and it can only post messages to the
   channels the bot was put in. Continue with posting (§3 chat); do not try issue, document or read endpoints with it.
-- If the URL or token is missing, or check fails (401, `TOKEN_POLICY_OFF`, cannot connect), stop and tell the user
-  what the helper printed and how to fix it (see §4). Do not guess a URL. Do not ask the user to paste the token
-  into the chat — ask them to set the environment variable themselves.
+- If the token is missing, or check fails (401, `TOKEN_POLICY_OFF`, cannot connect), stop and tell the user
+  what the helper printed and how to fix it (see §4). Do not point the helper at another address. Do not ask the
+  user to paste the token into the chat — ask them to set the environment variable themselves.
 
 ## 2. Safety rules (always)
 
@@ -81,7 +81,8 @@ Things that trip people up:
 - Sending a chat message is a **form** body (`--form to=… --form content=…`), not JSON. So is adding a reaction
   (`--form emoji_name=+1` — a name, not the character).
 - The inbox (`GET /api/hub/notifications`) is read one `source` at a time (`board` · `doc` · `chat`), each with its
-  own read scope. Reading it marks nothing as read, and a token cannot mark or remove anything there.
+  own read scope. Reading it marks nothing as read; marking one item read needs that source's write scope — do it
+  only when the user asked.
 - Ids are big numbers (about 15 digits). Keep them as strings.
 - A create answers `200` even when one optional field could not be saved; check `partialFailures` in the answer
   and tell the user which field failed and why.
@@ -109,7 +110,7 @@ Things that trip people up:
    - read channels → `chat:read`; post messages → `chat:write`
    - read/search documents → `doc:read`; create/edit/move documents → add `doc:write`
 3. The token is shown **once**. Put it in the environment, not in a chat, and keep it out of shell history —
-   `export ZENTA_URL=https://<company zenta address>`, then `read -rs ZENTA_TOKEN && export ZENTA_TOKEN` and paste
+   `read -rs ZENTA_TOKEN && export ZENTA_TOKEN` and paste
    (or save it to a file only they can read — `( umask 077; read -rs t; printf '%s' "$t" > ~/.zenta-token )` —
    and set `ZENTA_TOKEN_FILE=~/.zenta-token`). Never suggest a command with the token typed into it.
 4. If 「API 토큰」 is missing or creating fails with `TOKEN_POLICY_OFF`, an org admin has turned tokens off.

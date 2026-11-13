@@ -253,6 +253,7 @@ $Z GET /api/v1/messages/<message id>/replies                  # {messages: […]
 $Z GET /api/v1/messages/<message id>/replies --query after=<last reply id>   # the next ones
 $Z GET /api/v1/messages/<message id>/reactions                # {reactions: [{emoji_name, users: [{user_id, full_name}]}]}
 $Z POST /api/v1/messages/<message id>/reactions --form emoji_name=+1
+$Z DELETE /api/v1/messages/<message id>/reactions --query emoji_name=+1 --yes   # take your own reaction off
 $Z GET /api/v1/emoji                                          # every name the server accepts (about 3,000 — a large answer)
 ```
 
@@ -261,8 +262,8 @@ $Z GET /api/v1/emoji                                          # every name the s
 - `emoji_name` is a name, not the character: `+1` `-1` `check` (✅ — `white_check_mark` is not a name here) `eyes`
   `tada` `heart` `pray` `rocket` `ok`. An unknown name is refused with `400`; look it up in `GET /api/v1/emoji`
   (`emoji` = built-in names, `custom` = the organization's own) only then.
-- A reaction appears under the token owner's name. Adding the same one twice changes nothing. **Removing a reaction
-  is not possible with a token**, so add one only when the user asked for it.
+- A reaction appears under the token owner's name. Adding the same one twice changes nothing. `DELETE` takes off
+  the owner's own reaction of that name (not anyone else's); taking off one that is not there changes nothing.
 - A message the owner cannot see answers `404`, like one that does not exist.
 
 ## Inbox (`issue:read` / `doc:read` / `chat:read`)
@@ -271,6 +272,7 @@ $Z GET /api/v1/emoji                                          # every name the s
 $Z GET /api/hub/notifications --query source=board --query unread=1    # issues — needs issue:read
 $Z GET /api/hub/notifications --query source=doc --query unread=1      # documents — needs doc:read
 $Z GET /api/hub/notifications --query source=chat --query unread=1     # mentions, direct messages, replies — needs chat:read
+$Z POST '/api/hub/notifications/<notice id>/read?source=board'         # mark one read — needs issue:write (doc: doc:write · chat: chat:write)
 ```
 
 - One `source` per call, and the token needs that source's read scope (`403 TOKEN_SCOPE` without it). No
@@ -284,8 +286,11 @@ $Z GET /api/hub/notifications --query source=chat --query unread=1     # mention
   `channelId`/`dmId` + `messageId` for chat.
 - `limit` (20 by default, up to 100) and `offset` page through it; `hasMore` says whether to go on. Unread items
   come first.
-- **Reading changes nothing**: items stay unread for the person, and marking them read is not possible with a
-  token. Say what you found; the user clears their inbox themselves.
+- **Reading changes nothing**: items stay unread for the person. Marking one read (`POST …/<id>/read?source=…`,
+  `204`) needs the **write** scope of that source and the same `source` the item was listed under; it clears the
+  item from the person's unread list, so do it only when the user asked you to handle or clear it. One item per
+  call — marking everything read, marking unread and snoozing are not possible with a token. A number that is not in
+  that source answers `204` too and changes nothing.
 
 ## Post as a bot (`bot token`)
 

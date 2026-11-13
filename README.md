@@ -18,7 +18,6 @@ AI 에이전트(Claude Code, Codex)가 **회사 젠타에서 바로 일하게** 
 ## 준비물
 
 - Node.js 20 이상 (`node -v` 로 확인해요. 18 도 되지만 fetch 경고가 한 줄 나와요 — 고장은 아니에요)
-- 회사 젠타 주소 (예: `https://zenta.example.com`, 설치형이면 사내 주소)
 - 젠타 API 토큰
 
 ## 1. 토큰 만들기
@@ -33,15 +32,15 @@ AI 에이전트(Claude Code, Codex)가 **회사 젠타에서 바로 일하게** 
    | 문서 읽기·찾기 | 문서 보기 (`doc:read`) |
    | 문서 만들기·고치기·옮기기 | + 문서 쓰기 (`doc:write`) |
    | 채널 글 읽기 · 답글·반응 읽기 | 채팅 읽기 (`chat:read`) |
-   | 채널에 글 보내기 · 답글 달기 · 반응 달기 | 채팅 보내기 (`chat:write`) |
+   | 채널에 글 보내기 · 답글 달기 · 반응 달기·빼기 | 채팅 보내기 (`chat:write`) |
    | 알림함 읽기 | 읽을 곳의 보기 범위(이슈 알림은 `issue:read`, 문서 알림은 `doc:read`, 채팅 알림은 `chat:read`) |
+   | 알림을 읽음으로 바꾸기 | 그곳의 쓰기 범위(`issue:write` · `doc:write` · `chat:write`) |
 
 3. 만료는 짧게(30일) 두는 걸 권해요. 토큰은 **만든 직후 한 번만** 보여요.
 4. 토큰은 채팅창에 붙여 넣지 말고 환경 변수로 넣어요. 명령 줄에 토큰을 직접 적으면 셸 기록(history)에 남으니,
    아래처럼 `read -s` 로 붙여 넣어요(화면에도 기록에도 안 남아요).
 
 ```sh
-export ZENTA_URL=https://zenta.example.com
 read -rs ZENTA_TOKEN && export ZENTA_TOKEN     # 토큰을 붙여 넣고 Enter
 ```
 
@@ -116,7 +115,6 @@ node ~/.claude/skills/zenta-api/scripts/zenta.mjs check     # Codex 면 ~/.agent
 
 | 보이는 말 | 까닭 | 할 일 |
 |---|---|---|
-| `ZENTA_URL 이 비어 있어요` | 주소를 안 넣었어요 | `export ZENTA_URL=…` |
 | `401 UNAUTHORIZED` | 토큰이 틀렸거나 회수·만료됐어요. 비밀번호를 바꾸거나 «모든 기기에서 로그아웃»해도 끊겨요 | 새 토큰을 만들어요 |
 | `403 TOKEN_SCOPE` | 토큰에 그 범위가 없어요(봇 토큰은 글 보내기만 돼요) | 필요한 범위로 새 토큰을 만들어요 |
 | `… 파일을 읽지 못했어요` | `--markdown`·`--json-file` 로 준 파일이 없어요 | 파일 이름과 폴더를 확인해요 |
@@ -124,8 +122,7 @@ node ~/.claude/skills/zenta-api/scripts/zenta.mjs check     # Codex 면 ~/.agent
 | `403 TOKEN_POLICY_OFF` | 조직 관리자가 API 토큰을 꺼 두었어요 | 관리자에게 물어요 |
 | `403 FORBIDDEN` | 내 역할로는 못 하는 일이에요(화면과 같아요) | 프로젝트 관리자에게 권한을 부탁해요 |
 | `404 NOT_FOUND` | 없거나, 내가 볼 수 없는 것이에요 | 키·번호·프로젝트를 확인해요 |
-| `젠타에 연결하지 못했어요` | 주소·네트워크 문제예요. Codex 면 네트워크 허용을 켰는지 봐요 | 위 「Codex」 절 |
-| `http 주소예요` 주의 | 토큰이 암호화 없이 오가요 | 가능하면 https 주소를 써요 |
+| `젠타에 연결하지 못했어요` | 네트워크 문제예요. Codex 면 네트워크 허용을 켰는지 봐요 | 위 「Codex」 절 |
 
 ## 안에 든 것
 
