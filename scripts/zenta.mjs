@@ -5,12 +5,15 @@
 //   node zenta.mjs GET  /api/hub/issues --query projectId=ZEN --query limit=20
 //   node zenta.mjs POST /api/hub/issues --json '{"projectId":"ZEN","title":"배포 실패 확인"}'
 //   node zenta.mjs POST /api/v1/messages --form to=배포알림 --form content='배포가 끝났어요'
+//   node zenta.mjs POST /api/hub/issues/ZEN-12/attachments --file ./보고서.pdf
+//   node zenta.mjs GET  /api/hub/issues/ZEN-12/attachments/<publicId>/download --out ./보고서.pdf
 //
 // Reads ZENTA_URL and ZENTA_TOKEN (or ZENTA_TOKEN_FILE) from the environment. Never prints the token.
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { basename } from 'node:path'
 import { docFromMarkdown, markdownFromDoc, pagePayload, unwritableKinds } from './markdown-doc.mjs'
 
-const VERSION = '1.2.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
+const VERSION = '1.5.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
 const HELP = `사용법: node zenta.mjs <check | METHOD PATH> [옵션]
   --query k=v        주소 뒤 ?k=v (여러 번)
   --json '<JSON>'    JSON 본문
@@ -18,6 +21,8 @@ const HELP = `사용법: node zenta.mjs <check | METHOD PATH> [옵션]
   --form k=v         폼 본문 (여러 번, 메시지 보내기는 이 모양)
   --markdown <파일>   문서 만들기·고치기: 마크다운을 문서 내용(doc·body)으로 바꿔 JSON 본문에 넣어요 (- 이면 표준 입력)
   --append-markdown <파일>  문서 고치기: 지금 문서 끝에 마크다운을 덧붙여요(지금 판을 읽어 와요)
+  --file <파일>      파일 올리기(이슈 첨부 — multipart 의 file 칸, 한 번에 하나)
+  --out <파일>       받은 내용을 파일로 저장(첨부 내려받기). 이미 있는 파일은 덮어쓰지 않아요
   --retry            429 면 Retry-After 만큼 기다렸다가 두 번까지 다시
   --yes              빼기·지우기(DELETE)를 정말 보낼 때
 환경: ZENTA_URL (예: https://zenta.example.com) · ZENTA_TOKEN 또는 ZENTA_TOKEN_FILE`
@@ -72,7 +77,7 @@ function base() {
 const hide = (s) => String(s).replace(/zt_[A-Za-z0-9_-]{8,}/g, 'zt_…').replace(/\/hooks\/in\/[A-Za-z0-9_-]{8,}/g, '/hooks/in/…')
 
 function parseArgs(argv) {
-  const a = { query: [], form: [], json: undefined, markdown: undefined, append: undefined, retry: false, yes: false, rest: [] }
+  const a = { query: [], form: [], json: undefined, markdown: undefined, append: undefined, file: undefined, out: undefined, retry: false, yes: false, rest: [] }
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]
     const next = () => {
@@ -86,7 +91,9 @@ function parseArgs(argv) {
       a.json = readInput(next(), x)
     } else if (x === '--markdown' || x === '--append-markdown') {
       a[x === '--markdown' ? 'markdown' : 'append'] = readInput(next(), x)
-    } else if (x === '--retry') a.retry = true
+    } else if (x === '--file') a.file = next()
+    else if (x === '--out') a.out = next()
+    else if (x === '--retry') a.retry = true
     else if (x === '--yes') a.yes = true
     else if (x === '-h' || x === '--help') {
       out(HELP)
@@ -119,7 +126,9 @@ function explain(status, body, headers) {
             ? '회사 관리자가 API 토큰을 꺼 두었어요. 관리자에게 물어봐 주세요.'
             : '토큰 주인에게 이 일을 할 권한이 없어요(화면에서와 같은 규칙이에요).',
     404: '없거나, 토큰 주인이 볼 수 없는 것이에요. 키·번호와 projectId 를 확인해 주세요.',
-    409: '그 사이 다른 사람이 바꿨어요. 다시 읽고, 덮어쓸지 사람에게 먼저 물어봐 주세요.',
+    // Only the «someone changed it since you read» answers get that advice; other 409s (already linked, already
+    // released …) say what is wrong in the server's own sentence.
+    409: ['ISSUE_CONFLICT', 'STALE_REVISION'].includes(code) ? '그 사이 다른 사람이 바꿨어요. 다시 읽고, 덮어쓸지 사람에게 먼저 물어봐 주세요.' : '',
     429: `너무 자주 보냈어요. ${headers.get('retry-after') ?? '잠시'}초 뒤에 다시 보내 주세요.`,
   }[status] ?? (status >= 500 ? '젠타 서버에 문제가 있어요. 잠시 뒤 다시 해 보고, 계속되면 관리자에게 알려 주세요.' : '')
   return [`요청이 거절됐어요 (${status}${code ? ` ${code}` : ''})`, msg && `서버: ${msg}`, tip && `할 일: ${tip}`].filter(Boolean).join('\n')
@@ -177,10 +186,34 @@ async function request(method, path, a) {
   if (method === 'DELETE' && !a.yes) fail('빼기·지우기(DELETE)는 사람에게 확인받은 뒤 --yes 를 붙여 다시 보내 주세요.')
   const url = new URL(base() + path)
   for (const q of a.query) url.searchParams.append(...kv(q, '--query'))
+  // An attachment download is a file: it is saved, never printed. Decided on the address the server will see
+  // (decoded), before anything is fetched — so file content cannot reach the terminal by any spelling of the path.
+  let seen = url.pathname
+  try {
+    seen = decodeURIComponent(url.pathname)
+  } catch {}
+  const isFile = method === 'GET' && /\/attachments\/[^/]+\/download\/?$/.test(seen)
+  if (isFile && a.out === undefined) fail('첨부는 --out <파일> 로 저장해요.')
   const headers = { authorization: `Bearer ${token()}`, 'user-agent': `zenta-api-skill/${VERSION}` }
   let body
   if (a.json !== undefined && a.form.length) fail('--json 과 --form 은 함께 못 써요.')
-  if (a.markdown !== undefined || a.append !== undefined) {
+  if (a.out !== undefined) {
+    if (method !== 'GET') fail('--out 은 읽기(GET)에만 써요.')
+    if (existsSync(a.out)) fail(`이미 있는 파일이에요: ${a.out} — 다른 이름으로 저장해 주세요.`)
+  }
+  if (a.file !== undefined) {
+    if (method !== 'POST') fail('--file 은 올리기(POST)에만 써요.')
+    if (a.json !== undefined || a.form.length || a.markdown !== undefined || a.append !== undefined) fail('--file 은 다른 본문(--json · --form · --markdown)과 함께 못 써요.')
+    let bytes
+    try {
+      bytes = readFileSync(a.file)
+    } catch (e) {
+      fail(`--file 파일을 읽지 못했어요: ${a.file} (${e.code === 'ENOENT' ? '없는 파일이에요' : e.code ?? e.message})`)
+    }
+    // multipart: fetch sets the content-type (with its boundary) itself.
+    body = new FormData()
+    body.set('file', new Blob([bytes]), basename(a.file))
+  } else if (a.markdown !== undefined || a.append !== undefined) {
     headers['content-type'] = 'application/json'
     body = await withMarkdown(method, path, a, headers)
   } else if (a.json !== undefined) {
@@ -196,8 +229,26 @@ async function request(method, path, a) {
     body = new URLSearchParams(a.form.map((f) => kv(f, '--form'))).toString()
   }
   for (let attempt = 0; ; attempt++) {
-    const r = await call(method, url, headers, body)
-    const text = await r.text()
+    let r = await call(method, url, headers, body)
+    // A download may hand over to the file store (307). Fetch that address WITHOUT the token — it is another origin.
+    const moved = r.status >= 300 && r.status < 400 ? r.headers.get('location') : null
+    if (moved && a.out !== undefined) {
+      const next = new URL(moved, url)
+      if (next.protocol !== 'https:' && next.protocol !== 'http:') fail('넘겨받은 주소가 http(s) 가 아니에요.', 1)
+      try {
+        r = await fetch(next, { headers: { 'user-agent': headers['user-agent'] } })
+      } catch (e) {
+        fail(`파일 저장소에 연결하지 못했어요. (${e.cause?.code ?? e.message})`, 1)
+      }
+      if (!r.ok) fail(`파일을 받지 못했어요(${r.status}). 다시 내려받아 주세요.`, 1)
+    }
+    const raw = Buffer.from(await r.arrayBuffer())
+    // A file being saved is never read as an answer: its content may look like JSON (even like a refusal).
+    const saving = a.out !== undefined && r.ok
+    // Any other answer that is a file (octet-stream or «attachment») is not printed either.
+    const loose = !saving && r.ok && (/octet-stream/i.test(r.headers.get('content-type') ?? '') || /^attachment/i.test(r.headers.get('content-disposition') ?? ''))
+    if (loose) fail('파일이 왔어요. --out <파일> 로 저장해요.')
+    const text = saving ? '' : raw.toString('utf8')
     let data = null
     try {
       data = text ? JSON.parse(text) : null
@@ -212,6 +263,15 @@ async function request(method, path, a) {
     if (r.status >= 400 || data?.result === 'error') {
       err(hide(explain(r.status, data, r.headers)))
       process.exit(1)
+    }
+    if (saving) {
+      try {
+        writeFileSync(a.out, raw, { flag: 'wx', mode: 0o600 })
+      } catch (e) {
+        fail(`파일로 저장하지 못했어요: ${a.out} (${e.code ?? e.message})`)
+      }
+      out(`저장했어요: ${a.out} (${raw.length}바이트)`)
+      return
     }
     out(hide(data === null ? text || `(${r.status}, 본문 없음)` : JSON.stringify(data, null, 2)))
     return

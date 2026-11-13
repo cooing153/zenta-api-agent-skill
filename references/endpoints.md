@@ -15,7 +15,7 @@ Every request sends `Authorization: Bearer $ZENTA_TOKEN` to `$ZENTA_URL`. A toke
 | `doc:read` | 문서 보기 |
 | `doc:write` | 문서 쓰기 |
 
-An endpoint with no scope works with any personal token (bot tokens: `chat:write` only).
+An endpoint with no scope works with any personal token — except the inbox, whose `source` value decides the scope (see its `source` parameter). A bot token opens `POST /api/v1/messages` only.
 
 ## Refusals
 
@@ -351,6 +351,204 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/issues/ZEN-12/subtasks/ZEN-13?projectId=ZEN"
 ```
 
+### `GET /api/hub/releases`
+
+릴리스 목록(이슈를 담을 때 쓸 번호) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 번호 또는 키. projectId · planId 중 하나는 필수예요 |
+| `planId` | query (주소 뒤 ?) |  | 계획 번호(그 계획에 든 프로젝트들의 릴리스) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/releases?projectId=ZEN"
+```
+
+### `GET /api/hub/releases/{id}/issues`
+
+릴리스에 담긴 이슈 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 릴리스 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/releases/RELEASEID/issues?projectId=ZEN"
+```
+
+### `POST /api/hub/releases/{id}/issues`
+
+이슈를 릴리스에 담기(다른 릴리스에 있던 이슈는 옮겨져요. 출시한 릴리스에는 못 담아요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 릴리스 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `issueIds` | json (JSON 본문) | yes | 이슈 번호 목록(이슈를 읽어 받은 id 예요. 키는 안 돼요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"issueIds":["ISSUEID"]}' "$ZENTA_URL/api/hub/releases/RELEASEID/issues?projectId=ZEN"
+```
+
+### `GET /api/hub/milestones`
+
+마일스톤 목록(이슈를 담을 때 쓸 번호) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/milestones?projectId=ZEN"
+```
+
+### `GET /api/hub/milestones/{id}/issues`
+
+마일스톤에 담긴 이슈 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 마일스톤 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `cursor` | query (주소 뒤 ?) |  | 다음 쪽(앞 답의 nextCursor) |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 몇 건(기본 50, 200까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/milestones/MILESTONEID/issues?projectId=ZEN"
+```
+
+### `POST /api/hub/milestones/{id}/issues`
+
+이슈를 마일스톤에 담기(한 번에 하나) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 마일스톤 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `issueId` | json (JSON 본문) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"issueId":"ZEN-12"}' "$ZENTA_URL/api/hub/milestones/MILESTONEID/issues?projectId=ZEN"
+```
+
+### `GET /api/hub/issues/{taskId}/relations`
+
+이슈의 관계 목록(관련 · 막음 · 중복 · 복제) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/ZEN-12/relations?projectId=ZEN"
+```
+
+### `POST /api/hub/issues/{taskId}/relations`
+
+두 이슈 사이에 관계 맺기(상대 이슈에도 짝 관계가 생겨요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | json (JSON 본문) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+| `otherId` | json (JSON 본문) | yes | 상대 이슈 키 또는 번호 |
+| `kind` | json (JSON 본문) | yes | 관계 종류: related(관련) · blocking(이 이슈가 상대를 막음) · blocked(상대에게 막힘) · duplicating(이 이슈가 상대의 중복) · duplicated · cloning · cloned |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","otherId":"ZEN-13","kind":"blocking"}' "$ZENTA_URL/api/hub/issues/ZEN-12/relations"
+```
+
+### `GET /api/hub/timelogs`
+
+이슈의 시간 기록 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `issueId` | query (주소 뒤 ?) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/timelogs?issueId=ZEN-12"
+```
+
+### `POST /api/hub/timelogs`
+
+이슈에 시간 기록 적기(토큰 주인의 기록으로 남아요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `issueId` | json (JSON 본문) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `minutes` | json (JSON 본문) | yes | 걸린 시간(분, 1분부터 24시간까지) |
+| `workedOn` | json (JSON 본문) |  | 일한 날(YYYY-MM-DD). 비우면 오늘이에요 |
+| `note` | json (JSON 본문) |  | 한 일(짧게) |
+| `userId` | json (JSON 본문) |  | 조직 관리자만: 이 사람의 기록으로 적어요(사람 번호) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"issueId":"ZEN-12","minutes":90,"note":"배포 스크립트 점검"}' "$ZENTA_URL/api/hub/timelogs"
+```
+
+### `PATCH /api/hub/timelogs/{id}`
+
+시간 기록 고치기(세 칸이 통째로 바뀌어요. 남의 기록은 조직 관리자만 고쳐요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 시간 기록 번호 |
+| `minutes` | json (JSON 본문) | yes | 걸린 시간(분, 1분부터 24시간까지) |
+| `workedOn` | json (JSON 본문) |  | 일한 날(YYYY-MM-DD). 안 보내면 오늘로 바뀌어요 |
+| `note` | json (JSON 본문) |  | 한 일. 안 보내면 지워져요 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"minutes":120,"workedOn":"2026-11-13","note":"배포 스크립트 점검"}' "$ZENTA_URL/api/hub/timelogs/TIMELOGID"
+```
+
+### `GET /api/hub/issues/attachments/policy`
+
+올릴 수 있는 파일 크기와 확장자 · scope: `issue:read`
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/attachments/policy"
+```
+
+### `GET /api/hub/issues/{taskId}/attachments`
+
+이슈의 첨부 목록(줄마다 이름 name · 크기 size · 내려받을 때 쓸 publicId 가 있어요) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/ZEN-12/attachments"
+```
+
+### `GET /api/hub/issues/{taskId}/attachments/{id}/download`
+
+첨부 내려받기(파일 내용이 그대로 와요. 307 이면 넘겨 준 주소에서 받아요) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `id` | path (주소 안) | yes | 첨부의 publicId(목록에서 받아요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -L -o 받은파일 "$ZENTA_URL/api/hub/issues/ZEN-12/attachments/PUBLICID/download"
+```
+
+### `POST /api/hub/issues/{taskId}/attachments`
+
+이슈에 파일 올리기(multipart/form-data, 한 번에 하나) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `file` | form (폼 본문) | yes | 올릴 파일(multipart 의 file 칸). 크기·확장자는 정책을 따라요 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -F "file=@보고서.pdf" "$ZENTA_URL/api/hub/issues/ZEN-12/attachments"
+```
+
 ### `GET /api/v1/streams`
 
 내가 든 채널 목록 · scope: `chat:read`
@@ -386,6 +584,68 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -G --data-urlencode 'narrow=[{"oper
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" --data-urlencode "to=배포알림" --data-urlencode "content=배포가 끝났어요" "$ZENTA_URL/api/v1/messages"
+```
+
+### `GET /api/v1/messages/{id}/replies`
+
+메시지에 달린 답글 읽기 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 답글이 달린 메시지 번호 |
+| `num_before` | query (주소 뒤 ?) |  | 한 번에 몇 개(기본 50, 1,000까지) |
+| `after` | query (주소 뒤 ?) |  | 이 번호 뒤의 답글부터(이어 읽기) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/messages/MESSAGEID/replies"
+```
+
+### `GET /api/v1/messages/{id}/reactions`
+
+메시지에 달린 반응과 누른 사람 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/messages/MESSAGEID/reactions"
+```
+
+### `POST /api/v1/messages/{id}/reactions`
+
+메시지에 반응 달기(같은 반응을 또 달아도 하나예요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+| `emoji_name` | form (폼 본문) | yes | 이모지 이름(예: +1 · check · eyes · tada). 전체 이름은 GET /api/v1/emoji 에 있어요 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" --data-urlencode "emoji_name=+1" "$ZENTA_URL/api/v1/messages/MESSAGEID/reactions"
+```
+
+### `GET /api/v1/emoji`
+
+반응에 쓸 수 있는 이모지 이름 목록(3천 개쯤이라 답이 커요) · scope: `chat:read`
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/emoji"
+```
+
+### `GET /api/hub/notifications`
+
+알림함 읽기(source 로 고른 곳의 읽기 권한이 있어야 해요) · scope: any personal token
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `source` | query (주소 뒤 ?) | yes | board(이슈 알림, issue:read) · doc(문서 알림, doc:read) · chat(채팅 알림, chat:read) 중 하나 |
+| `unread` | query (주소 뒤 ?) |  | 1 이면 안 읽은 것만 |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 몇 개(기본 20, 100까지) |
+| `offset` | query (주소 뒤 ?) |  | 몇 개를 건너뛰고(이어 읽기) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/notifications?source=board&unread=1"
 ```
 
 ### `GET /api/hub/wiki`

@@ -140,6 +140,66 @@ $Z POST /api/hub/issues/ZEN-12/subtasks --json '{"projectId":"ZEN","childId":"ZE
   be changed (`400`). Leaving a group is the `none` call above.
 - Creating, renaming or deleting labels, sprints and groups is done in Zenta, not with a token.
 
+## Releases, milestones, relations, time logs (`issue:read` / `issue:write`)
+
+```sh
+$Z GET /api/hub/releases --query projectId=ZEN                 # [{id, name, state: unreleased|released, issueCount, doneCount}]
+$Z GET /api/hub/releases/<release id>/issues --query projectId=ZEN
+$Z POST /api/hub/releases/<release id>/issues --query projectId=ZEN --json '{"issueIds":["<issue id>"]}'   # {added: n}
+
+$Z GET /api/hub/milestones --query projectId=ZEN               # {milestones: [{id, name, state, issueCount}]}
+$Z GET /api/hub/milestones/<milestone id>/issues --query projectId=ZEN   # {issues: […], nextCursor?}
+$Z POST /api/hub/milestones/<milestone id>/issues --query projectId=ZEN --json '{"issueId":"ZEN-12"}'     # 204
+
+$Z GET /api/hub/issues/ZEN-12/relations --query projectId=ZEN  # {relations: [{kind, issue: {id, key, title, status}}]}
+$Z POST /api/hub/issues/ZEN-12/relations --json '{"projectId":"ZEN","otherId":"ZEN-13","kind":"blocking"}'
+
+$Z GET /api/hub/timelogs --query issueId=ZEN-12                # [{id, minutes, workedOn, note, user}]
+$Z POST /api/hub/timelogs --json '{"issueId":"ZEN-12","minutes":90,"note":"배포 스크립트 점검"}'             # 201
+$Z PATCH /api/hub/timelogs/<time log id> --json '{"minutes":120,"workedOn":"2026-11-13","note":"배포 스크립트 점검"}'
+```
+
+- A release takes issue **ids** (a key is refused with `400`); a milestone takes one issue **key or id** per call.
+  An issue is in one release at a time — putting it into a release moves it out of the unreleased one it was in.
+  It can be in several milestones.
+- `{"added": n}` counts what was newly put in: an issue already in the release, not in that project or not visible
+  to the owner is skipped without an error — if `n` is smaller than what you sent, say so. A released release takes
+  no more issues (`409 ALREADY_RELEASED`).
+- Relation `kind` reads from the issue in the path: `blocking` = this issue blocks the other, `blocked` = it is
+  blocked by the other, `duplicating` = this issue is the duplicate, `related` has no direction (`cloning`/`cloned`
+  mark a copy). The other issue gets the matching relation by itself. Linking twice, linking an issue to itself or
+  an unknown kind answers `409 CONFLICT` with the reason in the message — that is not «someone changed it», do not
+  retry.
+- A time log belongs to the token owner. `minutes` is 1 to 1440; `workedOn` is `YYYY-MM-DD` and defaults to today.
+  Only an organization admin's token may log for someone else (`"userId"`) or edit another person's log — both are
+  recorded as done on that person's behalf, so never do it without the user asking for exactly that.
+- **`PATCH` replaces the whole log**: send `minutes`, `workedOn` and `note` together. A field you leave out is not
+  kept — `workedOn` becomes today and `note` becomes empty. Read the log first and send back what should stay.
+  The issue of a log cannot be changed. A log whose issue the owner can no longer see answers `404`, like a log
+  that does not exist.
+- Taking an issue out of a release or milestone, removing a relation, deleting a time log, and creating or editing
+  releases and milestones are not possible with a token — tell the user to do those in Zenta.
+
+## Attachments (`issue:read` / `issue:write`)
+
+```sh
+$Z GET /api/hub/issues/attachments/policy                      # {maxBytes, allowedExtensions, proxyMaxBytes}
+$Z GET /api/hub/issues/ZEN-12/attachments                      # {attachments: [{id, publicId, name, size, uploadedBy, uploadedAt, downloadPath}]}
+$Z GET /api/hub/issues/ZEN-12/attachments/<publicId>/download --out ./보고서.pdf   # saves the file; never overwrites
+$Z POST /api/hub/issues/ZEN-12/attachments --file ./보고서.pdf   # 201 + one attachment, same shape as a list row
+```
+
+- Download with the row's **`publicId`** (not `id`). `downloadPath` is the same address without the `/api/hub` prefix.
+  The helper saves the bytes to `--out` exactly as received; without `--out` it refuses (a file is not printed to the
+  terminal). If Zenta hands the download over to its file store (`307`), the helper fetches that address **without
+  the token**.
+- One file per upload. Check `policy` first: a file over `maxBytes` is refused with `413`, an extension outside
+  `allowedExtensions` or content that does not match the extension with `415`, other problems with `400`.
+- Uploading shows up on the issue for everyone who can see it — confirm with the user first, and never upload a file
+  that holds a token, a key or a password.
+- Every download through Zenta is recorded under the token owner's name.
+- **Deleting an attachment is not possible with a token** — tell the user to do it in Zenta.
+
 ## Read and search documents (`doc:read`)
 
 ```sh
@@ -186,9 +246,51 @@ are refused (`400`). One token may post at most 30 messages per minute (the firs
 `429 RATE_LIMITED` with `Retry-After` = seconds until a slot frees. Wait that long (`--retry` does), then send the
 rest — or put many lines into one message instead.
 
+## Chat: replies and reactions (`chat:read` / `chat:write`)
+
+```sh
+$Z GET /api/v1/messages/<message id>/replies                  # {messages: […]} oldest first
+$Z GET /api/v1/messages/<message id>/replies --query after=<last reply id>   # the next ones
+$Z GET /api/v1/messages/<message id>/reactions                # {reactions: [{emoji_name, users: [{user_id, full_name}]}]}
+$Z POST /api/v1/messages/<message id>/reactions --form emoji_name=+1
+$Z GET /api/v1/emoji                                          # every name the server accepts (about 3,000 — a large answer)
+```
+
+- Replies hang under a top-level message: ask with that message's id (a reply's own id answers `404`). To write a
+  reply, post with `parent_id` (previous section).
+- `emoji_name` is a name, not the character: `+1` `-1` `check` (✅ — `white_check_mark` is not a name here) `eyes`
+  `tada` `heart` `pray` `rocket` `ok`. An unknown name is refused with `400`; look it up in `GET /api/v1/emoji`
+  (`emoji` = built-in names, `custom` = the organization's own) only then.
+- A reaction appears under the token owner's name. Adding the same one twice changes nothing. **Removing a reaction
+  is not possible with a token**, so add one only when the user asked for it.
+- A message the owner cannot see answers `404`, like one that does not exist.
+
+## Inbox (`issue:read` / `doc:read` / `chat:read`)
+
+```sh
+$Z GET /api/hub/notifications --query source=board --query unread=1    # issues — needs issue:read
+$Z GET /api/hub/notifications --query source=doc --query unread=1      # documents — needs doc:read
+$Z GET /api/hub/notifications --query source=chat --query unread=1     # mentions, direct messages, replies — needs chat:read
+```
+
+- One `source` per call, and the token needs that source's read scope (`403 TOKEN_SCOPE` without it). No
+  `source`, two of them or `source=all` answers `400` — to see everything, call once per source the token may read.
+- `board` gives the notices about an issue (assigned, mentioned, commented, changed …). The other things a person
+  sees in that tab — approval requests, import and export results, admin notices — do not come through a token.
+  Only `source`, `unread`, `limit` and `offset` are accepted; any other field answers `400`.
+- Answer: `{items: […], hasMore, unreadCount}`. `unreadCount` counts the chosen source only. An item has `id`,
+  `kind`, `summary` (one line), `preview` (the text, when there is one), `actorName`, `createdAt`, `readAt` (null =
+  unread), and where it points: `issueKey` + `projectKey` for an issue, `docPublicId` for a document,
+  `channelId`/`dmId` + `messageId` for chat.
+- `limit` (20 by default, up to 100) and `offset` page through it; `hasMore` says whether to go on. Unread items
+  come first.
+- **Reading changes nothing**: items stay unread for the person, and marking them read is not possible with a
+  token. Say what you found; the user clears their inbox themselves.
+
 ## Post as a bot (`bot token`)
 
-An org admin makes a bot (설정 › 연동과 접수 › 연동 › 봇) and its token. A bot token only posts, and only to the
+An org admin makes a bot (설정 › 연동과 접수 › 연동 › 봇) and its token. A bot token only posts (no reading, no
+reactions, no inbox), and only to the
 channels the admin put the bot in. `$Z check` answers «봇 토큰이에요» for it (that is a success). Use it exactly like
 `POST /api/v1/messages` above with `ZENTA_TOKEN` set to the bot token. A message shows the bot's name.
 

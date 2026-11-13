@@ -70,7 +70,7 @@ $Z POST /api/v1/messages --form to=배포알림 --form content='배포가 끝났
 ```
 
 Step-by-step recipes (search, create, update, status, assign, custom fields, labels, sprints, groups, sub-issues,
-comment, documents, chat, bot, webhooks):
+comment, documents, chat, replies and reactions, inbox, bot, webhooks):
 [references/recipes.md](references/recipes.md). Every endpoint, field and refusal code:
 [references/endpoints.md](references/endpoints.md).
 
@@ -78,7 +78,10 @@ Things that trip people up:
 
 - Issue writes take `projectId` (a project key like `ZEN` or its number) **in the JSON body**, even when the issue
   key is in the path.
-- Sending a chat message is a **form** body (`--form to=… --form content=…`), not JSON.
+- Sending a chat message is a **form** body (`--form to=… --form content=…`), not JSON. So is adding a reaction
+  (`--form emoji_name=+1` — a name, not the character).
+- The inbox (`GET /api/hub/notifications`) is read one `source` at a time (`board` · `doc` · `chat`), each with its
+  own read scope. Reading it marks nothing as read, and a token cannot mark or remove anything there.
 - Ids are big numbers (about 15 digits). Keep them as strings.
 - A create answers `200` even when one optional field could not be saved; check `partialFailures` in the answer
   and tell the user which field failed and why.
@@ -88,6 +91,11 @@ Things that trip people up:
   Sprint and group writes take the issue's **id**, not its key. `labels` in a patch replaces the whole list.
   Taking an issue out of a sprint or unlinking a sub-issue is a `DELETE` (needs `--yes`; confirm with the user
   first). Nothing is deleted — the issues stay.
+- Releases, milestones, relations, time logs: read them and add to them (`/api/hub/releases`, `/api/hub/milestones`,
+  `/api/hub/issues/<key>/relations`, `/api/hub/timelogs`). Editing a time log replaces all of it — send every field.
+  Removing any of these is not possible with a token.
+- Attachments: list with `/api/hub/issues/<key>/attachments`, download by the row's `publicId` with `--out <file>`, upload with
+  `--file <file>` (one per call; confirm first). Deleting an attachment is not possible with a token.
 - Documents: the page content is the `doc` field (a block tree); `body` is only its markdown mirror, and a write
   without `doc` is refused («문서 내용이 비어 있어요»). Always write through the helper's `--markdown` /
   `--append-markdown`, which builds both from markdown. Updates need the `revision` you read. **Deleting a document is not possible
