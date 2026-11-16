@@ -198,6 +198,28 @@ $Z GET /api/hub/sprints/<sprint id>/burndown --query projectId=ZEN   # {points: 
   first; the message names it when the owner can see it). **Deleting an issue is not possible with a token.**
 - An issue or project the owner cannot see answers `404`, like one that does not exist.
 
+## Goals (`issue:read` / `issue:write`)
+
+```sh
+$Z GET /api/hub/goals                                             # [{id, title, state, progress, owner, targetDate, canEdit}] — add --query archived=1 for archived ones
+$Z POST /api/hub/goals --json '{"title":"3분기 출시","targetDate":"2026-09-30"}'
+$Z POST /api/hub/goals/<goal id> --json '{"state":"achieved"}'    # only the fields you send change
+$Z POST /api/hub/goals/<goal id>/archive --json '{"archived":true}'
+$Z GET /api/hub/goals/<goal id>/issues                            # {items: […], hidden: <count the owner cannot see>}
+$Z POST /api/hub/goals/<goal id>/issues --json '{"issueIds":["<issue id>"]}'   # up to 50 a call
+$Z DELETE /api/hub/goals/<goal id>/issues/ZEN-12 --yes            # the issue and the goal both stay
+```
+
+- Goals belong to the organization, not to a project. `state` is `active`, `achieved` or `missed`; `mode` is
+  `issues` (progress counted from linked issues) or `manual` (send `manualPercent`, 0–100).
+- Changing or archiving a goal is for the person who made it, its owner, or an organization admin (`403`
+  otherwise). Linking or taking off an issue also needs the right to edit that issue; an issue the token owner
+  cannot see answers like one that does not exist.
+- Linking takes issue **numbers** (the `id` of an issue), not keys; taking off accepts a key or a number. Every
+  linked issue counts as one write against the 120-per-minute limit; a call that does not fit answers `429` and
+  links nothing.
+- There is no way to delete a goal — archive it.
+
 ## Saved filters (`issue:read` / `issue:write`)
 
 ```sh

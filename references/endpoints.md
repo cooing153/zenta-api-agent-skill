@@ -1224,6 +1224,106 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/sprints/123/rep
 curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/sprints/123/burndown?projectId=ZEN"
 ```
 
+### `GET /api/hub/goals`
+
+목표 목록(진행률과 함께) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `archived` | query (주소 뒤 ?) |  | 1 이면 보관한 목표 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/goals"
+```
+
+### `POST /api/hub/goals`
+
+목표 만들기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `title` | json (JSON 본문) | yes | 목표 이름(200자까지) |
+| `description` | json (JSON 본문) |  | 설명(4000자까지) |
+| `state` | json (JSON 본문) |  | active(하는 중) · achieved(이룸) · missed(못 이룸) |
+| `ownerId` | json (JSON 본문) |  | 담당자의 사용자 번호 |
+| `targetDate` | json (JSON 본문) |  | 목표일(YYYY-MM-DD) |
+| `mode` | json (JSON 본문) |  | 진행률을 세는 법. issues 면 이은 이슈로, manual 이면 manualPercent 로 |
+| `manualPercent` | json (JSON 본문) |  | mode 가 manual 일 때의 진행률(0~100) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"title":"3분기 출시","targetDate":"2026-09-30"}' "$ZENTA_URL/api/hub/goals"
+```
+
+### `POST /api/hub/goals/{id}`
+
+목표 고치기(보낸 칸만 바뀌어요. 만든 사람 · 담당자 · 조직 관리자만) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 목표 번호 |
+| `title` | json (JSON 본문) |  | 목표 이름(200자까지) |
+| `description` | json (JSON 본문) |  | 설명(4000자까지) |
+| `state` | json (JSON 본문) |  | active(하는 중) · achieved(이룸) · missed(못 이룸) |
+| `ownerId` | json (JSON 본문) |  | 담당자의 사용자 번호 |
+| `targetDate` | json (JSON 본문) |  | 목표일(YYYY-MM-DD) |
+| `mode` | json (JSON 본문) |  | 진행률을 세는 법. issues 면 이은 이슈로, manual 이면 manualPercent 로 |
+| `manualPercent` | json (JSON 본문) |  | mode 가 manual 일 때의 진행률(0~100) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"state":"achieved"}' "$ZENTA_URL/api/hub/goals/123"
+```
+
+### `POST /api/hub/goals/{id}/archive`
+
+목표 보관하기 또는 되돌리기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 목표 번호 |
+| `archived` | json (JSON 본문) | yes | true 면 보관, false 면 되돌리기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"archived":true}' "$ZENTA_URL/api/hub/goals/123/archive"
+```
+
+### `GET /api/hub/goals/{id}/issues`
+
+목표에 이은 이슈 목록(못 보는 이슈는 수만 hidden 에 담겨요) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 목표 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/goals/123/issues"
+```
+
+### `POST /api/hub/goals/{id}/issues`
+
+목표에 이슈 잇기(고칠 수 있는 이슈만, 한 번에 50건까지이고 이슈 수만큼 쓰기 한도에서 빠져요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 목표 번호 |
+| `issueIds` | json (JSON 본문) | yes | 이을 이슈 번호 목록 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"issueIds":["123"]}' "$ZENTA_URL/api/hub/goals/123/issues"
+```
+
+### `DELETE /api/hub/goals/{id}/issues/{issueId}`
+
+목표에서 이슈 떼기(이슈와 목표는 그대로 남아요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 목표 번호 |
+| `issueId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/goals/123/issues/ZEN-12"
+```
+
 ### `GET /api/hub/users/{id}`
 
 사람 한 명의 이름 · 부서 · 직함(메일은 안 실어요) · scope: `issue:read`
