@@ -311,6 +311,101 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issue-groups?pr
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"issueIds":["ISSUEID"]}' "$ZENTA_URL/api/hub/issue-groups/GROUPID/issues?projectId=ZEN"
 ```
 
+### `GET /api/hub/issues/{id}/tree`
+
+이슈와 그 아래 하위 이슈 전체(나무 한 그루) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/ZEN-12/tree?projectId=ZEN"
+```
+
+### `GET /api/hub/issues/{id}/ancestors`
+
+이슈의 상위 이슈들(바로 위 상위부터) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/ZEN-12/ancestors?projectId=ZEN"
+```
+
+### `POST /api/hub/issues/{taskId}/comments/{commentId}/reactions`
+
+이슈 코멘트에 반응 달기(이미 달았으면 그대로예요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `commentId` | path (주소 안) | yes | 코멘트 번호 |
+| `projectId` | json (JSON 본문) | yes | 프로젝트 번호 또는 키 |
+| `emoji` | json (JSON 본문) | yes | check · +1 · eyes 중 하나 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","emoji":"check"}' "$ZENTA_URL/api/hub/issues/ZEN-12/comments/123/reactions"
+```
+
+### `DELETE /api/hub/issues/{taskId}/comments/{commentId}/reactions`
+
+이슈 코멘트에서 내 반응 빼기(코멘트는 그대로 남아요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `commentId` | path (주소 안) | yes | 코멘트 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `emoji` | query (주소 뒤 ?) | yes | check · +1 · eyes 중 하나 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/issues/ZEN-12/comments/123/reactions?projectId=ZEN&emoji=check"
+```
+
+### `GET /api/hub/issues/recent`
+
+내가 최근에 본 이슈 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `limit` | query (주소 뒤 ?) |  | 몇 개(기본 10, 20까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/recent"
+```
+
+### `GET /api/hub/issues/deleted`
+
+휴지통의 이슈 목록(지운 지 얼마 안 된 것부터) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+| `cursor` | query (주소 뒤 ?) |  | 이어 읽을 자리(앞 답의 nextCursor) |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 몇 개(기본 50, 100까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/deleted?projectId=ZEN"
+```
+
+### `POST /api/hub/issues/{taskId}/restore`
+
+휴지통의 이슈 되살리기(이슈를 지울 수 있는 사람만) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/issues/ZEN-12/restore?projectId=ZEN"
+```
+
 ### `GET /api/hub/issues/{id}/subtasks`
 
 이슈의 하위 이슈 목록(줄마다 그 아래 하위가 children 에 담겨요) · scope: `issue:read`
@@ -1114,6 +1209,19 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/sprints/123/report?projectId=ZEN"
+```
+
+### `GET /api/hub/sprints/{id}/burndown`
+
+스프린트 번다운(날마다 남은 양) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 스프린트 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/sprints/123/burndown?projectId=ZEN"
 ```
 
 ### `GET /api/hub/users/{id}`

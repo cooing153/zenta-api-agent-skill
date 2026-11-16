@@ -176,6 +176,28 @@ $Z POST /api/hub/issues/ZEN-12/move --json '{"projectId":"ZEN","toProjectId":"OP
   (`409 MOVE_HAS_CHILDREN`) — move or unlink the sub-issues first. If `MOVE_SOURCE_FORBIDDEN` comes back although
   the owner may edit and delete there, tell the user to move it in Zenta or ask a project admin.
 
+## Tree, comment reactions, recently seen, trash (`issue:read` / `issue:write`)
+
+```sh
+$Z GET /api/hub/issues/ZEN-12/tree --query projectId=ZEN         # the issue with all its sub-issues, nested in children
+$Z GET /api/hub/issues/ZEN-12/ancestors --query projectId=ZEN    # {ancestors: [{id, key, title, …}]} — nearest parent first
+$Z POST /api/hub/issues/ZEN-12/comments/<comment id>/reactions --json '{"projectId":"ZEN","emoji":"check"}'
+$Z DELETE /api/hub/issues/ZEN-12/comments/<comment id>/reactions --query projectId=ZEN --query emoji=check --yes
+$Z GET /api/hub/issues/recent                                    # {items: [{key, title, projectKey, status, seenAt}]} — what the owner opened last
+$Z GET /api/hub/issues/deleted --query projectId=ZEN             # {items: [{id, key, title, deletedAt, deletedBy, purgeAt}], nextCursor}
+$Z POST '/api/hub/issues/ZEN-12/restore?projectId=ZEN'           # 204 — back from the trash
+$Z GET /api/hub/sprints/<sprint id>/burndown --query projectId=ZEN   # {points: […], velocity, unit, unestimated}
+```
+
+- A comment reaction is one of `check`, `+1`, `eyes`; it needs the right to comment on that issue. The answer is
+  `{reactions: [{emoji, count, mine, people}]}`. Taking off removes the owner's own reaction only.
+- The trash list reads newest deletions first; pass `nextCursor` back as `cursor` to go on. `purgeAt` is when the
+  issue is removed for good.
+- Restoring needs the right to delete issues in that project (`403` otherwise); an issue that is not in the trash
+  answers `409 NOT_DELETED`, and one whose parent is still in the trash `409 PARENT_DELETED` (restore the parent
+  first; the message names it when the owner can see it). **Deleting an issue is not possible with a token.**
+- An issue or project the owner cannot see answers `404`, like one that does not exist.
+
 ## Saved filters (`issue:read` / `issue:write`)
 
 ```sh
