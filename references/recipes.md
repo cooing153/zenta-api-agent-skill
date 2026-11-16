@@ -260,6 +260,47 @@ $Z POST /api/hub/projects/ZEN/favorite --json '{"favorite":true}'   # put the pr
 - Commit answers carry the author's name, never the e-mail address; `issueIds` lists only issues the token's
   owner can see.
 
+## Boards, dashboards, reports, sprint time (`issue:read` / `issue:write`)
+
+```sh
+$Z GET /api/hub/boards                                       # {boards: [{id, name, share, filter, columns, revision, canManage}]}
+$Z GET /api/hub/boards/<board id>/issues                     # {board, issues, columnOf: {issueId: columnId}, counts, states}; first=N limits each column
+$Z POST /api/hub/boards --json '{"name":"이번 달 버그","filterId":"<filter id>"}'      # a board shows a saved filter; private at first
+$Z PUT /api/hub/boards/<board id> --json '{"name":"이번 달 버그","filterId":"<filter id>","share":"org","swimlane":"assignee","columns":[…],"quickFilters":[],"adminIds":[…],"revision":2}'
+$Z POST /api/hub/boards/<board id>/rank --json '{"issueId":"<moved issue id>","order":["<issue id>","<issue id>"]}'   # 204
+$Z GET /api/hub/dashboards                                   # {dashboards: [{publicId, name, share, gadgetCount, mine}]}
+$Z GET /api/hub/dashboards/<publicId>                        # {dashboard: {…, gadgets: [{id, kind, groupBy, width}]}}
+$Z POST /api/hub/dashboards --json '{"name":"팀 현황"}'
+$Z POST /api/hub/dashboards/<publicId> --json '{"share":"org"}'              # only the fields sent change
+$Z POST /api/hub/dashboards/<publicId>/gadgets --json '{"kind":"filter-counts","filterId":"<filter id>","groupBy":"status"}'
+$Z POST /api/hub/dashboards/<publicId>/gadgets/<gadget id> --json '{"width":"wide"}'
+$Z POST /api/hub/dashboards/<publicId>/gadgets/reorder --json '{"ids":["<gadget id>","<gadget id>"]}'
+$Z GET /api/hub/dashboards/<publicId>/gadgets/<gadget id>/data               # e.g. {kind, total, by, groups: [{id, name, count}]}
+$Z GET /api/hub/dashboards/<publicId>/gadgets/<gadget id>/issues --query row=<group id>   # the issues behind one group
+$Z GET /api/hub/reports --query projectId=ZEN                # weekly, monthly and quarterly reports, newest first
+$Z GET /api/hub/reports/cycle --query projectId=ZEN --query from=2026-10-01 --query to=2026-10-31   # how long issues took
+$Z POST /api/hub/reports/regenerate --query projectId=ZEN --json '{"id":"<report id>"}'
+$Z GET /api/hub/sprints/<sprint id>/capacity --query projectId=ZEN            # {rows: [{capacityMinutes, loggedMinutes, remainingMinutes}], totalCapacityMinutes}
+$Z POST /api/hub/sprints/<sprint id>/capacity --query projectId=ZEN --json '{"userId":"<user id>","minutes":1200}'
+$Z POST /api/hub/sprints/backlog/rank --query projectId=ZEN --json '{"issueId":"<issue id>","beforeId":"<issue id>"}'   # 204
+$Z GET /api/hub/search/files --query kind=issue --query q=계약서                # or kind=chat (needs chat:read)
+```
+
+- **Saving a board sends everything.** Read the board, change what you need and send it all back with the
+  `revision` you read: `columns` (each with its `id`, `name`, `categories`, `stateIds`, `wipMax`), `swimlane`
+  (`none`, `assignee`, `project`, `priority`, `parent`), `share` (`private`, `team` + `teamId`, `org`). A stale
+  `revision` answers `409 BOARD_CHANGED` — read again.
+- `rank` takes the moved issue and the whole column in its new order (the ids from `issues` whose `columnOf` is
+  that column).
+- A dashboard is named by its `publicId`. Gadget numbers come from `dashboard.gadgets[].id`. Issue gadgets count
+  the issues the token's owner can see, so two people may read different numbers from the same dashboard; deploy
+  and on-call gadgets follow the owner's access to that project.
+- `minutes: null` (or leaving it out) takes a person's set time away. Setting time and making a report again need the project
+  settings permission.
+- `backlog/rank` moves one issue that is not in a sprint above (`beforeId`) or below (`afterId`) another — send
+  exactly one of the two.
+- Deleting a board, a dashboard or a gadget, and the exports, are not possible with a token.
+
 ## Goals (`issue:read` / `issue:write`)
 
 ```sh

@@ -1785,6 +1785,307 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/unread"
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"content":"고친 글이에요"}' "$ZENTA_URL/api/v1/messages/123"
 ```
 
+### `GET /api/hub/boards`
+
+볼 수 있는 보드 목록 · scope: `issue:read`
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/boards"
+```
+
+### `GET /api/hub/boards/{id}/issues`
+
+보드의 열과 카드(볼 수 있는 이슈만) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 보드 번호 |
+| `first` | query (주소 뒤 ?) |  | 열마다 먼저 받을 카드 수(비우면 전부) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/boards/AbCdEfGhIjK/issues"
+```
+
+### `POST /api/hub/boards`
+
+저장 필터로 보드 만들기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `name` | json (JSON 본문) | yes | 보드 이름 |
+| `filterId` | json (JSON 본문) | yes | 보드에 담을 저장 필터 번호 |
+| `share` | json (JSON 본문) |  | private(나만, 기본) · team(팀) · org(조직 전체) |
+| `teamId` | json (JSON 본문) |  | share 가 team 일 때 팀 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"name":"이번 달 버그","filterId":"123"}' "$ZENTA_URL/api/hub/boards"
+```
+
+### `PUT /api/hub/boards/{id}`
+
+보드 설정 통째로 저장하기(읽은 값을 고쳐서 보내요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 보드 번호 |
+| `name` | json (JSON 본문) | yes | 보드 이름 |
+| `filterId` | json (JSON 본문) |  | 보드에 담을 저장 필터 번호(비우면 그대로) |
+| `share` | json (JSON 본문) |  | private · team · org(비우면 그대로) |
+| `teamId` | json (JSON 본문) |  | share 가 team 일 때 팀 번호 |
+| `swimlane` | json (JSON 본문) | yes | 줄 나누기: none · assignee · project · priority · parent |
+| `columns` | json (JSON 본문) | yes | 열 목록(열마다 id, name, categories, stateIds, wipMax) |
+| `quickFilters` | json (JSON 본문) |  | 빠른 필터 목록(name, kind, values) |
+| `adminIds` | json (JSON 본문) |  | 보드 관리자의 사용자 번호 목록 |
+| `revision` | json (JSON 본문) | yes | 읽을 때 받은 판 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"name":"이번 달 버그","filterId":"123","share":"org","swimlane":"assignee","columns":[{"name":"할 일","categories":["todo"],"stateIds":[]},{"name":"끝","categories":["done"],"stateIds":[]}],"revision":2}' "$ZENTA_URL/api/hub/boards/AbCdEfGhIjK"
+```
+
+### `POST /api/hub/boards/{id}/rank`
+
+보드에서 카드 순서 바꾸기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 보드 번호 |
+| `issueId` | json (JSON 본문) | yes | 옮긴 이슈 번호 |
+| `order` | json (JSON 본문) | yes | 그 열의 이슈 번호를 새 순서대로 전부 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"issueId":"1002","order":["1002","1001","1003"]}' "$ZENTA_URL/api/hub/boards/AbCdEfGhIjK/rank"
+```
+
+### `GET /api/hub/dashboards`
+
+볼 수 있는 대시보드 목록 · scope: `issue:read`
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/dashboards"
+```
+
+### `GET /api/hub/dashboards/{ref}`
+
+대시보드 하나와 가젯 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `ref` | path (주소 안) | yes | 대시보드 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/dashboards/AbCdEfGhIjK"
+```
+
+### `POST /api/hub/dashboards`
+
+대시보드 만들기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `name` | json (JSON 본문) | yes | 대시보드 이름 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"name":"팀 현황"}' "$ZENTA_URL/api/hub/dashboards"
+```
+
+### `POST /api/hub/dashboards/{ref}`
+
+대시보드 이름이나 공유 범위 바꾸기(보낸 칸만 바뀌어요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `ref` | path (주소 안) | yes | 대시보드 번호 |
+| `name` | json (JSON 본문) |  | 대시보드 이름 |
+| `share` | json (JSON 본문) |  | private(나만) · team(팀) · org(조직 전체) |
+| `teamId` | json (JSON 본문) |  | share 가 team 일 때 팀 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"share":"org"}' "$ZENTA_URL/api/hub/dashboards/AbCdEfGhIjK"
+```
+
+### `POST /api/hub/dashboards/{ref}/gadgets`
+
+대시보드에 가젯 더하기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `ref` | path (주소 안) | yes | 대시보드 번호 |
+| `kind` | json (JSON 본문) | yes | 가젯 종류(filter-results · filter-counts · pie · created-resolved · two-dim · count 등) |
+| `filterId` | json (JSON 본문) |  | 가젯이 셀 저장 필터 번호 |
+| `projectId` | json (JSON 본문) |  | 가젯이 볼 프로젝트 번호(프로젝트를 보는 종류일 때) |
+| `groupBy` | json (JSON 본문) |  | 묶을 항목(status · assignee · priority · type · label 등) |
+| `settings` | json (JSON 본문) |  | 종류마다 다른 설정(JSON 객체) |
+| `width` | json (JSON 본문) |  | normal 또는 wide |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"kind":"filter-counts","filterId":"123","groupBy":"status"}' "$ZENTA_URL/api/hub/dashboards/AbCdEfGhIjK/gadgets"
+```
+
+### `POST /api/hub/dashboards/{ref}/gadgets/reorder`
+
+가젯 순서 바꾸기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `ref` | path (주소 안) | yes | 대시보드 번호 |
+| `ids` | json (JSON 본문) | yes | 가젯 번호를 새 순서대로 전부 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"ids":["7","5","6"]}' "$ZENTA_URL/api/hub/dashboards/AbCdEfGhIjK/gadgets/reorder"
+```
+
+### `POST /api/hub/dashboards/{ref}/gadgets/{gid}`
+
+가젯 설정 고치기(보낸 칸만 바뀌어요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `ref` | path (주소 안) | yes | 대시보드 번호 |
+| `gid` | path (주소 안) | yes | 가젯 번호 |
+| `source` | json (JSON 본문) |  | 가젯이 볼 곳(filterId 또는 projectId 하나) |
+| `filterId` | json (JSON 본문) |  | 가젯이 셀 저장 필터 번호(source 대신) |
+| `groupBy` | json (JSON 본문) |  | 묶을 항목 |
+| `settings` | json (JSON 본문) |  | 종류마다 다른 설정(JSON 객체) |
+| `width` | json (JSON 본문) |  | normal 또는 wide |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"width":"wide"}' "$ZENTA_URL/api/hub/dashboards/AbCdEfGhIjK/gadgets/7"
+```
+
+### `GET /api/hub/dashboards/{ref}/gadgets/{gid}/data`
+
+가젯이 센 값(토큰 임자가 볼 수 있는 이슈만 들어가요) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `ref` | path (주소 안) | yes | 대시보드 번호 |
+| `gid` | path (주소 안) | yes | 가젯 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/dashboards/AbCdEfGhIjK/gadgets/7/data"
+```
+
+### `GET /api/hub/dashboards/{ref}/gadgets/{gid}/issues`
+
+가젯의 한 조각에 든 이슈 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `ref` | path (주소 안) | yes | 대시보드 번호 |
+| `gid` | path (주소 안) | yes | 가젯 번호 |
+| `row` | query (주소 뒤 ?) |  | 조각의 줄 값(가젯 내용의 key) |
+| `col` | query (주소 뒤 ?) |  | 조각의 칸 값(2차원 표일 때) |
+| `cursor` | query (주소 뒤 ?) |  | 앞 응답의 nextCursor |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 받을 건수 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/dashboards/AbCdEfGhIjK/gadgets/7/issues?row=done"
+```
+
+### `GET /api/hub/reports`
+
+프로젝트의 주간 · 월간 · 분기 리포트 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호나 키 |
+| `kind` | query (주소 뒤 ?) |  | weekly · monthly · quarterly 중 하나(비우면 전부) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/reports?projectId=ZEN"
+```
+
+### `GET /api/hub/reports/cycle`
+
+이슈가 끝나기까지 걸린 시간(기본은 최근 90일) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호나 키 |
+| `from` | query (주소 뒤 ?) |  | 기간의 시작(YYYY-MM-DD) |
+| `to` | query (주소 뒤 ?) |  | 기간의 끝(YYYY-MM-DD, 1년까지) |
+| `statuses` | query (주소 뒤 ?) |  | 잴 상태 번호(쉼표로 여럿) |
+| `typeIds` | query (주소 뒤 ?) |  | 이슈 유형 번호(쉼표로 여럿) |
+| `resolutionIds` | query (주소 뒤 ?) |  | 해결 사유 번호(쉼표로 여럿) |
+| `excludeResolutions` | query (주소 뒤 ?) |  | 1 이면 고른 해결 사유를 빼요 |
+| `filterId` | query (주소 뒤 ?) |  | 저장 필터 번호로 좁히기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/reports/cycle?projectId=ZEN"
+```
+
+### `POST /api/hub/reports/regenerate`
+
+리포트 하나 다시 만들기(프로젝트 설정 권한이 있어야 해요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호나 키 |
+| `id` | json (JSON 본문) | yes | 리포트 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"id":"123"}' "$ZENTA_URL/api/hub/reports/regenerate?projectId=ZEN"
+```
+
+### `GET /api/hub/sprints/{id}/capacity`
+
+스프린트에서 사람별로 쓸 수 있는 시간과 맡은 일 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 스프린트 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호나 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/sprints/123/capacity?projectId=ZEN"
+```
+
+### `POST /api/hub/sprints/{id}/capacity`
+
+스프린트에서 한 사람이 쓸 수 있는 시간 정하기(프로젝트 설정 권한이 있어야 해요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 스프린트 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호나 키 |
+| `userId` | json (JSON 본문) | yes | 사용자 번호 |
+| `minutes` | json (JSON 본문) |  | 쓸 수 있는 시간(분, 비우거나 null 이면 정한 값을 지워요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"userId":"123","minutes":1200}' "$ZENTA_URL/api/hub/sprints/123/capacity?projectId=ZEN"
+```
+
+### `POST /api/hub/sprints/backlog/rank`
+
+스프린트에 안 담긴 이슈의 순서 바꾸기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호나 키 |
+| `issueId` | json (JSON 본문) | yes | 옮길 이슈 번호 |
+| `beforeId` | json (JSON 본문) |  | 이 이슈의 위로(afterId 와 둘 중 하나만) |
+| `afterId` | json (JSON 본문) |  | 이 이슈의 아래로 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"issueId":"1002","beforeId":"1001"}' "$ZENTA_URL/api/hub/sprints/backlog/rank?projectId=ZEN"
+```
+
+### `GET /api/hub/search/files`
+
+이슈 첨부나 채팅 파일을 이름으로 찾기(고른 쪽의 보기 권한이 있어야 해요) · scope: by `kind` — `chat` needs `chat:read`, `issue` needs `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `q` | query (주소 뒤 ?) | yes | 찾을 낱말 |
+| `kind` | query (주소 뒤 ?) | yes | issue(이슈 첨부) 또는 chat(채팅 파일) 중 하나 |
+| `after` | query (주소 뒤 ?) |  | 이 날짜부터(YYYY-MM-DD) |
+| `before` | query (주소 뒤 ?) |  | 이 날짜 전까지(YYYY-MM-DD) |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 받을 건수 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/search/files?kind=issue&q=%EA%B3%84%EC%95%BD%EC%84%9C"
+```
+
 ### `GET /api/hub/projects/{projectId}/oncall`
 
 프로젝트의 당직표와 승격 정책과 지금 당번 · scope: `issue:read`
