@@ -79,9 +79,32 @@ $Z POST /api/hub/issues/ZEN-12 --json '{"projectId":"ZEN","patch":{"title":"새 
 - Fields: `title` · `description` · `status` · `assignees` · `priority` · `startDate` · `dueDate` · `labels` ·
   `issueType` · `storyPoints` · `estimateMinutes`.
 - One token may send at most 120 writes per minute (issues, comments, fields, sprints, groups, documents — chat
-  posts have their own limit of 30). The next one gets `429 RATE_LIMITED` with `Retry-After`; wait that long
+  posts have their own limit of 30; a bulk call counts once per issue in it). The next one gets `429 RATE_LIMITED` with `Retry-After`; wait that long
   (`--retry` does) instead of retrying at once.
 - `{"noLongerVisible": true}` means the change hid the issue from you (e.g. you removed yourself); it was saved.
+
+## Change several issues at once (`issue:write`)
+
+```sh
+$Z POST /api/hub/issues/bulk --json '{"projectId":"ZEN","issueIds":["ZEN-12","ZEN-13"],"priority":{"mode":"set","value":2}}'
+$Z POST /api/hub/issues/bulk --json '{"projectId":"ZEN","issueIds":["ZEN-12","ZEN-13"],"labels":{"mode":"add","ids":["<label id>"]},"dueDate":{"mode":"set","value":"2026-12-01"}}'
+$Z POST /api/hub/issues/bulk/move --json '{"projectId":"ZEN","toProjectId":"<target key>","items":[{"issueId":"ZEN-12","statusId":"<status id>"}]}'
+```
+
+- A token sends **at most 50 issues per call** (`400` above that — split the list), and every issue in the call
+  counts as one write against the 120-per-minute limit: 50 issues are 50 writes. A call that does not fit answers
+  `429 RATE_LIMITED` with `Retry-After` and changes nothing.
+- One value fields (`status`, `priority`, `dueDate`, `startDate`) take `{"mode":"set","value":…}` with the same
+  values as a single-issue change (`priority` 0–4, dates `YYYY-MM-DD`); for the dates `"value":null` empties the
+  field. List fields (`labels`, `assignees`) take `{"mode":"add"|"remove"|"replace"|"clear","ids":[…]}`.
+  A field you leave out is not touched. `status` takes a status id (`/api/hub/workflow/states`).
+- The answer is `{succeeded, failed: [{issueId, reason, message}], requested, …}` — **read `failed`**: the call is
+  `200` even when some issues could not be changed (no permission, not visible, a status that issue type does not
+  have). Tell the user how many succeeded and which failed, not «done».
+- This changes many issues in one step and there is no undo with a token. Show the user the list and the change,
+  and get a clear yes first. `notify: true` also notifies new assignees; leave it out unless asked.
+- Bulk move follows the single move's rules for every issue (new keys, what is dropped — ask for one issue's plan
+  with `dryRun` first to pick the `statusId`). Deleting several issues at once is not possible with a token.
 
 ## Change status (`issue:read` + `issue:write`)
 
@@ -106,6 +129,7 @@ $Z POST /api/hub/issues/ZEN-12 --json '{"projectId":"ZEN","patch":{"assignees":[
 
 - Without `members=true` the list is everyone in the company the owner may pick on screen; for assigning, prefer
   project members.
+- Assigning a department takes a department id from `/api/hub/org/tree` (see «People and departments»).
 - `assignees` is the whole new list — read the issue first and keep the people who should stay.
 - Several people share a name: show the user the matches (name, department) and ask which one.
 - `403 FORBIDDEN` «담당자를 지정할 권한이 없어요»: the token owner's project role may not assign.
@@ -151,6 +175,50 @@ $Z POST /api/hub/issues/ZEN-12/move --json '{"projectId":"ZEN","toProjectId":"OP
   (`403 MOVE_SOURCE_FORBIDDEN` / `MOVE_TARGET_FORBIDDEN`). An issue with sub-issues cannot be moved
   (`409 MOVE_HAS_CHILDREN`) — move or unlink the sub-issues first. If `MOVE_SOURCE_FORBIDDEN` comes back although
   the owner may edit and delete there, tell the user to move it in Zenta or ask a project admin.
+
+## Saved filters (`issue:read` / `issue:write`)
+
+```sh
+$Z GET /api/hub/filters --query projectId=ZEN            # the project's filters (built-in ones first)
+$Z GET /api/hub/filters --query scope=org                # filters that span projects
+$Z GET /api/hub/filters/starred
+$Z GET /api/hub/filters/<filter id>                      # name and `query`
+$Z GET /api/hub/filters/<filter id>/issues --query limit=50
+$Z POST /api/hub/filters --json '{"projectId":"ZEN","name":"급한 일","query":{"priorities":[3,4],"statusCategories":["todo","doing"]}}'
+$Z POST /api/hub/filters/<filter id> --json '{"name":"이번 주 급한 일"}'
+$Z POST /api/hub/filters/<filter id>/star --json '{"on":true}'
+```
+
+- Running a filter answers `{issues, nextCursor}` — at most 200 per page; pass `nextCursor` back as `cursor` until
+  it is absent. Only issues the token owner can see are listed.
+- `400` «목록의 다음 위치가 올바르지 않아요» on a later page means the cursor went stale (the issue it points at was
+  moved or hidden meanwhile): read again from the first page instead of treating it as the end.
+- `query` is the same conditions object the screen saves. Read an existing filter to learn the shape before writing
+  one. Common keys: `priorities` (0–4), `statusCategories` (`todo` · `doing` · `hold` · `done` · `closed`),
+  `statusIds`, `assigneeIds`, `assigneeMe`, `labelIds`, `search`. A wrong shape or an unknown category is `400`
+  with the reason; an id that matches nothing is accepted and simply finds no issues — check ids before saving.
+- A new filter is private. `"shared": true` shows a project filter to everyone in the project; a filter that spans
+  projects (`"scope":"org"`, no `projectId`) takes `"share": "private" | "team" | "org"` (`teamId` with `team`).
+  Sharing changes what other people see in their lists — confirm with the user first.
+- Editing sends only what changes; `query` replaces the whole conditions object. You can edit your own filters;
+  built-in ones cannot be changed.
+- A filter you cannot see answers `404` like one that does not exist — also your own filter in a project you are
+  no longer a member of. Deleting a filter, exporting its result and
+  the weekly mail are not possible with a token.
+
+## People and departments (`issue:read`)
+
+```sh
+$Z GET /api/hub/users/<person id>                        # name, department, title (never an e-mail address)
+$Z GET /api/hub/org/tree                                 # departments as a tree (ids for department assignees)
+$Z GET /api/hub/org/departments/<department id>/members --query limit=50 --query includeDescendants=true
+```
+
+- With `limit` the members answer is `{items, nextCursor}` (at most 200 per page); without it, a plain list.
+- A department that does not exist answers an empty list, not an error. A person the token owner may not look up
+  answers `404` like one that does not exist.
+- Use `/api/hub/users/search` (see «Assign») to find a person by name; these routes read what you already have an
+  id for.
 
 ## Projects: make and change (`issue:write`)
 

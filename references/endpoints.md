@@ -974,6 +974,187 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/issues/
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/issues/ZEN-12/vote?projectId=ZEN"
 ```
 
+### `POST /api/hub/issues/bulk`
+
+여러 이슈를 한꺼번에 고치기(토큰은 한 번에 50건까지이고 건수만큼 쓰기 한도에서 빠져요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | json (JSON 본문) | yes | 그 이슈들의 프로젝트 번호 또는 키 |
+| `issueIds` | json (JSON 본문) | yes | 고칠 이슈의 키나 번호 목록(50건까지) |
+| `status` | json (JSON 본문) |  | 상태를 바꾸려면 {"mode":"set","value":"상태 번호"} |
+| `priority` | json (JSON 본문) |  | 우선순위를 바꾸려면 {"mode":"set","value":2} 이고 값은 0~4 정수 |
+| `dueDate` | json (JSON 본문) |  | 마감일을 바꾸려면 {"mode":"set","value":"2026-12-01"} 이고 value 가 null 이면 비워요 |
+| `startDate` | json (JSON 본문) |  | 시작일(마감일과 같은 모양) |
+| `labels` | json (JSON 본문) |  | 라벨은 {"mode":"add","ids":["라벨 번호"]} 이고 mode 는 add · remove · replace · clear 중 하나 |
+| `assignees` | json (JSON 본문) |  | 담당자(라벨과 같은 모양이고 ids 는 사람 번호) |
+| `notify` | json (JSON 본문) |  | true 면 새 담당자에게 알림을 보내요(기본은 안 보내요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","issueIds":["ZEN-12","ZEN-13"],"priority":{"mode":"set","value":2}}' "$ZENTA_URL/api/hub/issues/bulk"
+```
+
+### `POST /api/hub/issues/bulk/move`
+
+여러 이슈를 다른 프로젝트로 옮기기(토큰은 한 번에 50건까지이고 건수만큼 쓰기 한도에서 빠져요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | json (JSON 본문) | yes | 지금 프로젝트 번호 또는 키 |
+| `toProjectId` | json (JSON 본문) | yes | 옮길 프로젝트 번호 또는 키 |
+| `items` | json (JSON 본문) | yes | 옮길 이슈 목록이고 한 줄은 {"issueId":"ZEN-12","statusId":"옮긴 뒤 상태 번호"}(상태는 낱개 옮기기의 계획에서 골라요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","toProjectId":"APP","items":[{"issueId":"ZEN-12","statusId":"1"}]}' "$ZENTA_URL/api/hub/issues/bulk/move"
+```
+
+### `GET /api/hub/filters`
+
+저장 필터 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 번호 또는 키. projectId 또는 scope=org 중 하나는 필수예요 |
+| `scope` | query (주소 뒤 ?) |  | org 면 프로젝트에 묶이지 않은 전체 필터 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/filters?projectId=ZEN"
+```
+
+### `GET /api/hub/filters/starred`
+
+내가 즐겨찾기한 저장 필터 · scope: `issue:read`
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/filters/starred"
+```
+
+### `GET /api/hub/filters/{id}`
+
+저장 필터 하나(이름과 조건) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 필터 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/filters/123"
+```
+
+### `GET /api/hub/filters/{id}/issues`
+
+저장 필터에 걸리는 이슈 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 필터 번호 |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 받을 수(기본 200, 최대 200) |
+| `cursor` | query (주소 뒤 ?) |  | 앞 응답의 nextCursor(다음 쪽) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/filters/123/issues?limit=50"
+```
+
+### `POST /api/hub/filters`
+
+저장 필터 만들기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | json (JSON 본문) |  | 프로젝트 번호 또는 키(전체 필터면 빼고 scope 를 org 로) |
+| `scope` | json (JSON 본문) |  | org 면 전체 필터 |
+| `name` | json (JSON 본문) | yes | 필터 이름 |
+| `query` | json (JSON 본문) | yes | 조건 객체(예: {"assigneeMe":true,"statusCategories":["todo","doing"]}) |
+| `shared` | json (JSON 본문) |  | 프로젝트 필터를 프로젝트 사람들과 함께 쓸지(기본 false) |
+| `share` | json (JSON 본문) |  | 전체 필터의 공유 범위: private · team · org |
+| `teamId` | json (JSON 본문) |  | share 가 team 일 때 팀 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","name":"내 할 일","query":{"assigneeMe":true}}' "$ZENTA_URL/api/hub/filters"
+```
+
+### `POST /api/hub/filters/{id}`
+
+저장 필터 고치기(보낸 칸만 바뀌어요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 필터 번호 |
+| `name` | json (JSON 본문) |  | 새 이름 |
+| `query` | json (JSON 본문) |  | 새 조건 객체(통째로 바뀌어요) |
+| `shared` | json (JSON 본문) |  | 프로젝트 필터의 공유 여부 |
+| `share` | json (JSON 본문) |  | 전체 필터의 공유 범위: private · team · org |
+| `teamId` | json (JSON 본문) |  | share 가 team 일 때 팀 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"name":"이번 주 할 일"}' "$ZENTA_URL/api/hub/filters/123"
+```
+
+### `POST /api/hub/filters/{id}/star`
+
+저장 필터를 즐겨찾기에 넣기 또는 빼기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 필터 번호 |
+| `on` | json (JSON 본문) | yes | true 면 넣기, false 면 빼기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"on":true}' "$ZENTA_URL/api/hub/filters/123/star"
+```
+
+### `GET /api/hub/sprints/{id}/report`
+
+스프린트 리포트(끝낸 것과 남은 것, 시작한 스프린트만) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 스프린트 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/sprints/123/report?projectId=ZEN"
+```
+
+### `GET /api/hub/users/{id}`
+
+사람 한 명의 이름 · 부서 · 직함(메일은 안 실어요) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 사람 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/users/123"
+```
+
+### `GET /api/hub/org/tree`
+
+부서 나무(담당 부서로 고를 부서 번호) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `includeArchived` | query (주소 뒤 ?) |  | true 면 없앤 부서도 함께 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/org/tree"
+```
+
+### `GET /api/hub/org/departments/{id}/members`
+
+부서에 속한 사람 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 부서 번호 |
+| `includeDescendants` | query (주소 뒤 ?) |  | true 면 아래 부서 사람도 함께 |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 받을 수(보내면 쪽으로 나눠 줘요, 최대 200) |
+| `cursor` | query (주소 뒤 ?) |  | 앞 응답의 nextCursor(다음 쪽) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/org/departments/123/members?limit=50"
+```
+
 ### `GET /api/hub/search`
 
 이슈나 코멘트를 낱말로 찾기(이슈 보기 권한이 있어야 해요) · scope: by `kind` — `comment` needs `issue:read`, `issue` needs `issue:read`

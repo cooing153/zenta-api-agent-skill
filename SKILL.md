@@ -94,6 +94,11 @@ Things that trip people up:
   first). Nothing is deleted — the issues stay.
 - Documents also take comments on a paragraph (read, add, reply, resolve) and keep a revision history you can read
   — see `references/recipes.md`.
+- Several issues can be changed or moved in one call (`/api/hub/issues/bulk`, at most 50 per call, each counted as
+  a write) — always show the list and get a clear yes first; read `failed` in the answer.
+- Saved filters: list, read, run (`/api/hub/filters/<id>/issues`), make, change and star them; a sprint's report
+  (`/api/hub/sprints/<id>/report`); a person, the department tree and a department's members (`/api/hub/users/<id>`,
+  `/api/hub/org/tree`). Sharing a filter with others needs the user's yes; deleting one is not possible.
 - Search issues or comments by words (`/api/hub/search`, pick one `kind`), and make or change a project
   (`/api/hub/projects` — confirm name and key first; a project cannot be deleted with a token).
 - Watch or stop watching an issue, mark it blocked (with a reason) or clear that, vote, read its history, edit your
