@@ -14,6 +14,7 @@ Every request sends `Authorization: Bearer $ZENTA_TOKEN` to `$ZENTA_URL` (the Ze
 | `chat:write` | 채팅 보내기 |
 | `doc:read` | 문서 보기 |
 | `doc:write` | 문서 쓰기 |
+| `approval:decide` | 결재 승인·반려 |
 
 An endpoint with no scope works with any personal token. On a few endpoints the scope depends on one parameter (the inbox's `source`, search's `kind`): the endpoint lists which value needs which scope, and that parameter must be sent with exactly one of those values. A bot token opens `POST /api/v1/messages` only.
 
@@ -1395,6 +1396,32 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/approvals/123/withdraw"
+```
+
+### `POST /api/hub/approvals/{id}/approve`
+
+내 차례인 결재 승인하기 · scope: `approval:decide`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 결재 번호 |
+| `comment` | json (JSON 본문) |  | 의견(500자까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"comment":"확인했어요"}' "$ZENTA_URL/api/hub/approvals/123/approve"
+```
+
+### `POST /api/hub/approvals/{id}/reject`
+
+내 차례인 결재 반려하기 · scope: `approval:decide`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 결재 번호 |
+| `comment` | json (JSON 본문) | yes | 반려 사유(500자까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"comment":"예산 근거를 더해 주세요"}' "$ZENTA_URL/api/hub/approvals/123/reject"
 ```
 
 ### `GET /api/hub/users/{id}`

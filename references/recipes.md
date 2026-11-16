@@ -220,7 +220,7 @@ $Z DELETE /api/hub/goals/<goal id>/issues/ZEN-12 --yes            # the issue an
   links nothing.
 - There is no way to delete a goal — archive it.
 
-## Approvals (`issue:read` / `issue:write`)
+## Approvals (`issue:read` / `issue:write` / `approval:decide`)
 
 ```sh
 $Z GET /api/hub/approvals                                # waiting for the token owner's decision
@@ -230,6 +230,8 @@ $Z GET /api/hub/approvals/issue/ZEN-12                   # approvals tied to an 
 $Z GET /api/hub/approvals/line/suggest                   # {approvers: [{userId, name, departmentName}], basis}
 $Z POST /api/hub/approvals --json '{"title":"연차 신청","body":"12월 1일부터 사흘","approverIds":["<user id>"]}'
 $Z POST /api/hub/approvals/<approval id>/withdraw
+$Z POST /api/hub/approvals/<approval id>/approve --json '{"comment":"확인했어요"}'      # needs approval:decide; comment optional
+$Z POST /api/hub/approvals/<approval id>/reject --json '{"comment":"예산 근거를 더해 주세요"}'   # a reason is required
 ```
 
 - `state` is `pending`, `approved`, `rejected` or `withdrawn`. `GET /api/hub/approvals` comes 200 at a time; when
@@ -238,7 +240,12 @@ $Z POST /api/hub/approvals/<approval id>/withdraw
   to tie the request to an issue the owner can see.
 - Only the requester can withdraw, while the request is pending and nobody has approved a step yet. Read
   `canWithdraw` on the approval before trying.
-- **Approving and rejecting are not available with a token.** Tell the user to decide in Zenta.
+- **Approving and rejecting need the `approval:decide` scope**, which the issue scopes do not include. They work
+  only when it is the token owner's turn in the line (otherwise `400`), answer `{approval, transition?}`, and cannot
+  be undone. The last approval can move the tied issue to its next status. Each decision counts as one write
+  against the 120-per-minute limit.
+- **Decide only when the user asked for that decision on that approval.** Read the approval first, tell the user
+  what it is, and never approve or reject on your own judgment or in bulk.
 - A masked body or comment (`bodyMasked`, `commentMasked`) cannot be opened with a token.
 
 ## Saved filters (`issue:read` / `issue:write`)

@@ -132,6 +132,8 @@ Things that trip people up:
    - read issues only → `issue:read`; create/update/comment → add `issue:write`
    - read channels → `chat:read`; post messages → `chat:write`
    - read/search documents → `doc:read`; create/edit/move documents → add `doc:write`
+   - approve or reject approvals in the user's name → `approval:decide` (only if they ask for it; reading and
+     requesting approvals need just the issue scopes)
 3. The token is shown **once**. Put it in the environment, not in a chat, and keep it out of shell history —
    `read -rs ZENTA_TOKEN && export ZENTA_TOKEN` and paste
    (or save it to a file only they can read — `( umask 077; read -rs t; printf '%s' "$t" > ~/.zenta-token )` —
