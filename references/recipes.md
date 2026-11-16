@@ -793,6 +793,42 @@ $Z GET /api/v1/streams/<channel id>/tabs                                     # t
 - A message or channel the owner cannot see answers like one that does not exist.
 - More of a list: `--query cursor=<nextCursor>`.
 
+## Chat: group conversations, tabs, polls, notices, read receipts (`chat:read` / `chat:write`)
+
+```sh
+$Z POST /api/v1/dms --form user_id=<person id> --form user_id=<person id>      # a conversation of three or more: {dm_id}
+$Z POST /api/v1/dms/<dm id>/name --form name='출시 준비'                        # group conversations only
+$Z POST /api/v1/dms/<dm id>/add --form user_id=<person id>                       # the conversation of everyone together: {dm_id}
+$Z POST /api/v1/dms/<dm id>/leave                                               # the conversation and its messages stay
+$Z GET /api/v1/dms/<dm id>/pinned-links                                         # {links: [{id, label, url}]}
+$Z POST /api/v1/dms/<dm id>/pinned-links --json '{"label":"기획서","url":"https://example.com/plan"}'
+$Z PATCH /api/v1/dms/<dm id>/pinned-links/<link id> --json '{"label":"기획서 최신"}'
+$Z PUT /api/v1/dms/<dm id>/pinned-links/order --json '{"ids":["<link id>","<link id>"]}'
+$Z POST /api/v1/streams/<channel id>/tabs --json '{"kind":"link","label":"배포 현황","url":"https://example.com/deploys"}'   # {tab: {id}}
+$Z POST /api/v1/streams/<channel id>/tabs --json '{"kind":"wiki","wiki_page_id":"<page id>"}'
+$Z PATCH /api/v1/streams/<channel id>/tabs/<tab id> --json '{"label":"배포"}'
+$Z PUT /api/v1/streams/<channel id>/tabs/link-order --json '{"ids":["<tab id>","<tab id>"]}'
+$Z GET /api/v1/messages/<message id>/source                  # {content} — the markdown of a message the owner wrote
+$Z GET /api/v1/messages/<message id>/read_receipts           # {enabled, read, unread}
+$Z GET /api/v1/messages/<message id>/channel-context         # which channel a thread's first message is in: {stream_id, name}
+$Z POST /api/v1/polls --json '{"stream_id":<channel id>,"question":"회식 날짜","options":["목요일","금요일"]}'   # {id: <message id>}
+$Z POST /api/v1/polls/<poll id>/vote --json '{"option_id":"<option id>"}'     # send again to change
+$Z DELETE /api/v1/polls/<poll id>/vote --yes                                  # take my vote back; the poll stays
+$Z GET /api/v1/announcements                                 # company notices: {announcements: [{id, acked, …}]}; all=true adds closed ones
+$Z POST /api/v1/announcements/<notice id>/ack                # «I have read it»
+```
+
+- A conversation of two has no name and cannot take more people — open a new one with everyone instead. `add` on
+  a group conversation answers the conversation of everyone together (`dm_id` — a new one, or the one that
+  already exists for those people). Bringing the earlier messages along is done on the screen.
+- A poll is a message. `POST /api/v1/polls` answers the message id; read the channel's messages to get
+  `poll.id` and `poll.options[].id` (`label`, `votes`). It counts against the 30 messages a minute.
+- Tab kinds: `link` (a pinned link — 50 per channel or conversation), `wiki` (a document), and the built-in
+  `issues`, `files`, `workflows`, `memo` (one each). Changing tabs needs to manage the channel. Deleting a tab or a
+  pinned link is not possible with a token.
+- Making, closing or re-sending a company notice is an organization admin's work on the screen; a token reads the
+  notices and confirms them for its owner. Confirm one only when the user said they have read it.
+
 ## Chat: channels — browse, make, change, invite, leave (`chat:read` / `chat:write`)
 
 ```sh

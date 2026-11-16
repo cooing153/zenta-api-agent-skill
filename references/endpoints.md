@@ -1785,6 +1785,244 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/unread"
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"content":"고친 글이에요"}' "$ZENTA_URL/api/v1/messages/123"
 ```
 
+### `POST /api/v1/dms/{id}/name`
+
+여럿이 있는 개인 대화의 이름 바꾸기 · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 개인 대화 번호 |
+| `name` | form (폼 본문) | yes | 대화 이름(빈 값이면 이름을 지워요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" --data-urlencode "name=출시 준비" "$ZENTA_URL/api/v1/dms/123/name"
+```
+
+### `POST /api/v1/dms/{id}/leave`
+
+여럿이 있는 개인 대화에서 나가기(대화와 글은 그대로예요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 개인 대화 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/v1/dms/123/leave"
+```
+
+### `POST /api/v1/dms/{id}/add`
+
+여럿이 있는 개인 대화에 사람 더하기(그 사람들이 모인 대화를 돌려줘요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 개인 대화 번호 |
+| `user_id` | form (폼 본문) | yes | 더할 사람의 사용자 번호(여럿이면 칸을 되풀이해요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" --data-urlencode "user_id=456" "$ZENTA_URL/api/v1/dms/123/add"
+```
+
+### `GET /api/v1/dms/{id}/pinned-links`
+
+개인 대화에 고정한 링크 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 개인 대화 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/dms/123/pinned-links"
+```
+
+### `POST /api/v1/dms/{id}/pinned-links`
+
+개인 대화에 링크 고정하기(50개까지) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 개인 대화 번호 |
+| `label` | json (JSON 본문) | yes | 링크 이름 |
+| `url` | json (JSON 본문) | yes | 주소(https) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"label":"기획서","url":"https://example.com/plan"}' "$ZENTA_URL/api/v1/dms/123/pinned-links"
+```
+
+### `PATCH /api/v1/dms/{id}/pinned-links/{linkId}`
+
+고정한 링크의 이름이나 주소 고치기(보낸 칸만 바뀌어요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 개인 대화 번호 |
+| `linkId` | path (주소 안) | yes | 링크 번호 |
+| `label` | json (JSON 본문) |  | 링크 이름 |
+| `url` | json (JSON 본문) |  | 주소(https) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"label":"기획서 최신"}' "$ZENTA_URL/api/v1/dms/123/pinned-links/7"
+```
+
+### `PUT /api/v1/dms/{id}/pinned-links/order`
+
+고정한 링크의 순서 바꾸기 · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 개인 대화 번호 |
+| `ids` | json (JSON 본문) | yes | 링크 번호를 새 순서대로 전부 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"ids":["7","5"]}' "$ZENTA_URL/api/v1/dms/123/pinned-links/order"
+```
+
+### `POST /api/v1/streams/{id}/tabs`
+
+채널에 탭 더하기(문서나 링크) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+| `kind` | json (JSON 본문) | yes | wiki(문서) · link(링크, 50개까지) · issues · files · workflows · memo |
+| `wiki_page_id` | json (JSON 본문) |  | kind 가 wiki 일 때 문서 번호 |
+| `url` | json (JSON 본문) |  | kind 가 link 일 때 주소(https) |
+| `label` | json (JSON 본문) |  | 탭 이름 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"kind":"link","label":"배포 현황","url":"https://example.com/deploys"}' "$ZENTA_URL/api/v1/streams/123/tabs"
+```
+
+### `PATCH /api/v1/streams/{id}/tabs/{tabId}`
+
+채널 탭의 이름이나 주소 고치기(보낸 칸만 바뀌어요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+| `tabId` | path (주소 안) | yes | 탭 번호 |
+| `label` | json (JSON 본문) |  | 탭 이름 |
+| `url` | json (JSON 본문) |  | 주소(https) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"label":"배포"}' "$ZENTA_URL/api/v1/streams/123/tabs/7"
+```
+
+### `PUT /api/v1/streams/{id}/tabs/link-order`
+
+채널에 고정한 링크의 순서 바꾸기 · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+| `ids` | json (JSON 본문) | yes | 링크 탭 번호를 새 순서대로 전부 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"ids":["7","5"]}' "$ZENTA_URL/api/v1/streams/123/tabs/link-order"
+```
+
+### `GET /api/v1/messages/{id}/read_receipts`
+
+메시지를 읽은 사람과 아직 안 읽은 사람 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/messages/123/read_receipts"
+```
+
+### `GET /api/v1/messages/{id}/source`
+
+내가 쓴 메시지의 마크다운 원문 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/messages/123/source"
+```
+
+### `GET /api/v1/messages/{id}/channel-context`
+
+답글이 달린 글이 있는 채널 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/messages/123/channel-context"
+```
+
+### `POST /api/v1/polls`
+
+채널에 투표 올리기(메시지 한도 1분 30개를 함께 써요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `stream_id` | json (JSON 본문) | yes | 채널 번호 |
+| `question` | json (JSON 본문) | yes | 물을 말 |
+| `options` | json (JSON 본문) | yes | 선택지 목록(둘 이상) |
+| `anonymous` | json (JSON 본문) |  | true 면 누가 골랐는지 안 보여요 |
+| `closes_at` | json (JSON 본문) |  | 마감 시각(유닉스 초) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"stream_id":123,"question":"회식 날짜","options":["목요일","금요일"]}' "$ZENTA_URL/api/v1/polls"
+```
+
+### `POST /api/v1/polls/{id}/vote`
+
+투표에서 고르기(다시 보내면 바꿔요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 투표 번호 |
+| `option_id` | json (JSON 본문) | yes | 고른 선택지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"option_id":"45"}' "$ZENTA_URL/api/v1/polls/12/vote"
+```
+
+### `DELETE /api/v1/polls/{id}/vote`
+
+투표에서 내 표 거두기(투표는 그대로예요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 투표 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/v1/polls/12/vote"
+```
+
+### `GET /api/v1/announcements`
+
+전사 공지 목록(내가 확인했는지와 함께) · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `all` | query (주소 뒤 ?) |  | true 면 마감한 공지도 |
+| `cursor` | query (주소 뒤 ?) |  | 앞 응답의 nextCursor |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/announcements"
+```
+
+### `POST /api/v1/announcements/{id}/ack`
+
+전사 공지를 확인했다고 표시하기 · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 공지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/v1/announcements/12/ack"
+```
+
 ### `GET /api/hub/plans`
 
 볼 수 있는 계획 목록 · scope: `issue:read`
