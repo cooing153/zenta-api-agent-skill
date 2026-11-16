@@ -224,6 +224,42 @@ $Z GET /api/hub/issues/department                                               
   `--query departmentId=<department id>` from `/api/hub/org/tree` for another). Only issues the owner can see are
   listed.
 
+## On-call alerts, deploys, project commits (`issue:read` / `issue:write`)
+
+```sh
+$Z GET /api/hub/projects/ZEN/oncall                          # {schedules, policies: [{id, name, enabled, steps}], people, openAlerts, canHandle}
+$Z GET /api/hub/projects/ZEN/oncall/alerts                   # {alerts: [{id, title, status, policyName, createdAt}], counts: {open, acked, resolved}}
+$Z GET /api/hub/projects/ZEN/oncall/alerts --query status=resolved    # active (default) · open · acked · resolved · all
+$Z GET /api/hub/projects/ZEN/oncall/alerts/<alert id>        # one alert with its events (who was notified, when)
+$Z POST /api/hub/projects/ZEN/oncall/alerts --json '{"title":"결제 오류가 늘었어요","detail":"5분 동안 실패 40건","policyId":"<policy id>"}'   # {id}
+$Z POST /api/hub/projects/ZEN/oncall/alerts/<alert id>/ack       # 204 — «I am on it»: the alert stops moving to the next step
+$Z POST /api/hub/projects/ZEN/oncall/alerts/<alert id>/unack     # 204 — back to waiting
+$Z POST /api/hub/projects/ZEN/oncall/alerts/<alert id>/resolve   # 204 — closed
+$Z POST /api/hub/projects/ZEN/oncall/alerts/<alert id>/reopen    # 204
+$Z POST /api/hub/projects/ZEN/oncall/alerts/<alert id>/reassign --json '{"userId":"<user id>"}'   # 204 — that person is notified at once
+$Z GET /api/hub/projects/ZEN/dora                            # {frequency, lead, failure, recovery, rework, trend, window}
+$Z GET /api/hub/projects/ZEN/deploys                         # {items: [{id, service, environment, status, sha, finishedAt}], nextCursor}
+$Z GET /api/hub/projects/ZEN/deploys/<deploy id>             # {deploy, commits, issues, incidents, mergedPrs}
+$Z GET /api/hub/projects/ZEN/commits                         # {commits, nextCursor, from, to, olderExists} — the last 30 days
+$Z GET /api/hub/projects/ZEN/commits --query range=all       # every commit; or --query from=<unix seconds> --query to=<unix seconds>
+$Z GET /api/hub/projects/ZEN/commit-stats --query range=all  # {total, authors: [{name, count}], repos}
+$Z GET /api/hub/projects/ZEN/hierarchy                       # {on, levels, types: [{id, name, levelId}]}
+$Z POST /api/hub/projects/ZEN/favorite --json '{"favorite":true}'   # put the project among my favorites (false takes it out)
+```
+
+- **Raising an alert notifies people at once** — the first step of the escalation policy, then the next steps until
+  someone acknowledges. Raise one only when the user asked for it, and pick the policy with them
+  (`policies[].id` from the overview; a disabled policy does not notify). Raising and reassigning share a small
+  budget — 5 a minute and 30 an hour per token; past it the answer is `429` with `Retry-After`.
+- An alert is `open` (waiting), `acked` (someone is on it) or `resolved`. Acknowledging twice answers `409`.
+- Acknowledging, resolving and reassigning act as the token's owner — do them only when the user said so for that
+  alert. Reassigning takes a member of the project or an organization admin.
+- Duty rosters and escalation policies are read in the overview and changed on the screen; deploy settings and
+  Git connections are on the screen only.
+- `dora` takes `from` and `to` together (unix seconds); without them it answers the default window.
+- Commit answers carry the author's name, never the e-mail address; `issueIds` lists only issues the token's
+  owner can see.
+
 ## Goals (`issue:read` / `issue:write`)
 
 ```sh

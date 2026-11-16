@@ -1785,6 +1785,226 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/unread"
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"content":"고친 글이에요"}' "$ZENTA_URL/api/v1/messages/123"
 ```
 
+### `GET /api/hub/projects/{projectId}/oncall`
+
+프로젝트의 당직표와 승격 정책과 지금 당번 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/projects/ZEN/oncall"
+```
+
+### `GET /api/hub/projects/{projectId}/oncall/alerts`
+
+프로젝트의 경보 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `status` | query (주소 뒤 ?) |  | active(기본, 안 끝난 것) · open(확인 기다림) · acked(확인함) · resolved(해결) · all |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/projects/ZEN/oncall/alerts"
+```
+
+### `GET /api/hub/projects/{projectId}/oncall/alerts/{alertId}`
+
+경보 하나와 알린 기록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `alertId` | path (주소 안) | yes | 경보 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/projects/ZEN/oncall/alerts/AbCdEfGhIjK"
+```
+
+### `POST /api/hub/projects/{projectId}/oncall/alerts`
+
+경보 울리기(승격 정책의 당번에게 바로 알리고, 넘기기와 합쳐 1분에 5번 1시간에 30번까지예요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `title` | json (JSON 본문) | yes | 경보 제목(120자까지) |
+| `detail` | json (JSON 본문) |  | 내용(2000자까지) |
+| `policyId` | json (JSON 본문) | yes | 승격 정책 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"title":"결제 오류가 늘었어요","policyId":"AbCdEfGhIjK"}' "$ZENTA_URL/api/hub/projects/ZEN/oncall/alerts"
+```
+
+### `POST /api/hub/projects/{projectId}/oncall/alerts/{alertId}/ack`
+
+경보 확인하기(다음 단계로 안 넘어가요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `alertId` | path (주소 안) | yes | 경보 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/projects/ZEN/oncall/alerts/AbCdEfGhIjK/ack"
+```
+
+### `POST /api/hub/projects/{projectId}/oncall/alerts/{alertId}/unack`
+
+경보 확인 취소하기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `alertId` | path (주소 안) | yes | 경보 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/projects/ZEN/oncall/alerts/AbCdEfGhIjK/unack"
+```
+
+### `POST /api/hub/projects/{projectId}/oncall/alerts/{alertId}/resolve`
+
+경보를 해결로 닫기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `alertId` | path (주소 안) | yes | 경보 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/projects/ZEN/oncall/alerts/AbCdEfGhIjK/resolve"
+```
+
+### `POST /api/hub/projects/{projectId}/oncall/alerts/{alertId}/reopen`
+
+해결한 경보 다시 열기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `alertId` | path (주소 안) | yes | 경보 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/projects/ZEN/oncall/alerts/AbCdEfGhIjK/reopen"
+```
+
+### `POST /api/hub/projects/{projectId}/oncall/alerts/{alertId}/reassign`
+
+경보를 다른 사람에게 넘기기(그 사람에게 바로 알리고, 울리기와 합쳐 1분에 5번 1시간에 30번까지예요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `alertId` | path (주소 안) | yes | 경보 번호 |
+| `userId` | json (JSON 본문) | yes | 넘길 사람의 사용자 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"userId":"123"}' "$ZENTA_URL/api/hub/projects/ZEN/oncall/alerts/AbCdEfGhIjK/reassign"
+```
+
+### `GET /api/hub/projects/{projectId}/dora`
+
+프로젝트의 DORA 지표와 12주 추이 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `from` | query (주소 뒤 ?) |  | 기간의 시작(유닉스 초, to 와 함께 보내요) |
+| `to` | query (주소 뒤 ?) |  | 기간의 끝(유닉스 초) |
+| `service` | query (주소 뒤 ?) |  | 서비스 이름으로 좁히기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/projects/ZEN/dora"
+```
+
+### `GET /api/hub/projects/{projectId}/deploys`
+
+프로젝트의 배포 목록(새것부터) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `cursor` | query (주소 뒤 ?) |  | 앞 응답의 nextCursor |
+| `service` | query (주소 뒤 ?) |  | 서비스 이름으로 좁히기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/projects/ZEN/deploys"
+```
+
+### `GET /api/hub/projects/{projectId}/deploys/{deploymentId}`
+
+배포 하나에 든 commit과 이슈와 붙은 장애 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `deploymentId` | path (주소 안) | yes | 배포 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/projects/ZEN/deploys/123"
+```
+
+### `GET /api/hub/projects/{projectId}/commits`
+
+프로젝트에 들어온 commit(기본은 최근 30일) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `range` | query (주소 뒤 ?) |  | all 이면 전체 기간 |
+| `from` | query (주소 뒤 ?) |  | 기간의 시작(유닉스 초) |
+| `to` | query (주소 뒤 ?) |  | 기간의 끝(유닉스 초) |
+| `connection` | query (주소 뒤 ?) |  | 저장소 번호로 좁히기 |
+| `cursor` | query (주소 뒤 ?) |  | 앞 응답의 nextCursor |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 가져올 수 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/projects/ZEN/commits"
+```
+
+### `GET /api/hub/projects/{projectId}/commit-stats`
+
+프로젝트의 commit 수(사람별과 저장소별, 글쓴이 메일은 안 실어요) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `range` | query (주소 뒤 ?) |  | all 이면 전체 기간 |
+| `from` | query (주소 뒤 ?) |  | 기간의 시작(유닉스 초) |
+| `to` | query (주소 뒤 ?) |  | 기간의 끝(유닉스 초) |
+| `connection` | query (주소 뒤 ?) |  | 저장소 번호로 좁히기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/projects/ZEN/commit-stats"
+```
+
+### `GET /api/hub/projects/{projectId}/hierarchy`
+
+프로젝트의 이슈 계층(어느 유형이 어느 단계인지) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | path (주소 안) | yes | 프로젝트 번호나 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/projects/ZEN/hierarchy"
+```
+
+### `POST /api/hub/projects/{id}/favorite`
+
+프로젝트를 내 즐겨찾기에 넣기 또는 빼기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 프로젝트 번호나 키 |
+| `favorite` | json (JSON 본문) | yes | true 면 넣고 false 면 빼요 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"favorite":true}' "$ZENTA_URL/api/hub/projects/ZEN/favorite"
+```
+
 ### `GET /api/v1/saved`
 
 내가 담아 둔 메시지(한 번에 100건) · scope: `chat:read`
