@@ -1548,6 +1548,31 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/notifications?s
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/notifications/NOTICEID/read?source=board"
 ```
 
+### `POST /api/hub/notifications/read-all`
+
+고른 곳의 알림을 모두 읽음으로(source 로 고른 곳의 쓰기 권한이 있어야 해요) · scope: by `source` — `board` needs `issue:write`, `chat` needs `chat:write`, `doc` needs `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `source` | query (주소 뒤 ?) | yes | board(이슈 알림, issue:write) · doc(문서 알림, doc:write) · chat(채팅 알림, chat:write) 중 하나 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/notifications/read-all?source=board"
+```
+
+### `POST /api/hub/notifications/{id}/unread`
+
+알림 하나를 안 읽음으로(source 로 고른 곳의 쓰기 권한이 있어야 해요) · scope: by `source` — `board` needs `issue:write`, `chat` needs `chat:write`, `doc` needs `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 알림 번호(알림함 읽기의 id) |
+| `source` | query (주소 뒤 ?) | yes | 그 알림을 읽은 곳과 같은 값. board(issue:write) · doc(doc:write) · chat(chat:write) 중 하나 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/notifications/NOTICEID/unread?source=board"
+```
+
 ### `GET /api/hub/wiki`
 
 문서 목차(트리) · scope: `doc:read`

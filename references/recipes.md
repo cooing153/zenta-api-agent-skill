@@ -573,6 +573,8 @@ $Z GET /api/hub/notifications --query source=board --query unread=1    # issues 
 $Z GET /api/hub/notifications --query source=doc --query unread=1      # documents — needs doc:read
 $Z GET /api/hub/notifications --query source=chat --query unread=1     # mentions, direct messages, replies — needs chat:read
 $Z POST '/api/hub/notifications/<notice id>/read?source=board'         # mark one read — needs issue:write (doc: doc:write · chat: chat:write)
+$Z POST '/api/hub/notifications/<notice id>/unread?source=board'       # back to unread — same scopes
+$Z POST '/api/hub/notifications/read-all?source=board'                 # everything of that source read — same scopes; {ids: […]}
 ```
 
 - One `source` per call, and the token needs that source's read scope (`403 TOKEN_SCOPE` without it). No
@@ -588,9 +590,13 @@ $Z POST '/api/hub/notifications/<notice id>/read?source=board'         # mark on
   come first.
 - **Reading changes nothing**: items stay unread for the person. Marking one read (`POST …/<id>/read?source=…`,
   `204`) needs the **write** scope of that source and the same `source` the item was listed under; it clears the
-  item from the person's unread list, so do it only when the user asked you to handle or clear it. One item per
-  call — marking everything read, marking unread and snoozing are not possible with a token. A number that is not in
-  that source answers `204` too and changes nothing.
+  item from the person's unread list, so do it only when the user asked you to handle or clear it. A number that is
+  not in that source answers `204` too and changes nothing.
+- `POST …/<id>/unread?source=…` puts one item back to unread (`204`); a number that is not in that source answers
+  `404`, and `409` means a newer notice from the same place is already unread. `POST …/read-all?source=…` marks
+  everything the token can list under that source as read and answers the changed `ids`; it clears the person's
+  whole list for that source, so do it only when the user asked for exactly that. Both take `source` only.
+  Snoozing is not possible with a token.
 
 ## Post as a bot (`bot token`)
 

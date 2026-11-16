@@ -81,8 +81,8 @@ Things that trip people up:
 - Sending a chat message is a **form** body (`--form to=… --form content=…`), not JSON. So is adding a reaction
   (`--form emoji_name=+1` — a name, not the character).
 - The inbox (`GET /api/hub/notifications`) is read one `source` at a time (`board` · `doc` · `chat`), each with its
-  own read scope. Reading it marks nothing as read; marking one item read needs that source's write scope — do it
-  only when the user asked.
+  own read scope. Reading it marks nothing as read; marking items read (one, or all of a source) or one back to
+  unread needs that source's write scope — do it only when the user asked.
 - Ids are big numbers (about 15 digits). Keep them as strings.
 - A create answers `200` even when one optional field could not be saved; check `partialFailures` in the answer
   and tell the user which field failed and why.
