@@ -220,6 +220,27 @@ $Z DELETE /api/hub/goals/<goal id>/issues/ZEN-12 --yes            # the issue an
   links nothing.
 - There is no way to delete a goal — archive it.
 
+## Approvals (`issue:read` / `issue:write`)
+
+```sh
+$Z GET /api/hub/approvals                                # waiting for the token owner's decision
+$Z GET /api/hub/approvals --query mine=drafted           # the ones the owner requested (handled · done also work)
+$Z GET /api/hub/approvals/<approval id>                  # {title, body, state, steps: [{approverName, state, isCurrent}], canWithdraw}
+$Z GET /api/hub/approvals/issue/ZEN-12                   # approvals tied to an issue
+$Z GET /api/hub/approvals/line/suggest                   # {approvers: [{userId, name, departmentName}], basis}
+$Z POST /api/hub/approvals --json '{"title":"연차 신청","body":"12월 1일부터 사흘","approverIds":["<user id>"]}'
+$Z POST /api/hub/approvals/<approval id>/withdraw
+```
+
+- `state` is `pending`, `approved`, `rejected` or `withdrawn`. `GET /api/hub/approvals` comes 200 at a time; when
+  200 arrive, ask again with `--query offset=200`. The approvals of one issue come all at once.
+- `approverIds` is the approval line in order (up to 10 organization members, not the requester and not guests). Add `"issueId":"<issue id>"`
+  to tie the request to an issue the owner can see.
+- Only the requester can withdraw, while the request is pending and nobody has approved a step yet. Read
+  `canWithdraw` on the approval before trying.
+- **Approving and rejecting are not available with a token.** Tell the user to decide in Zenta.
+- A masked body or comment (`bodyMasked`, `commentMasked`) cannot be opened with a token.
+
 ## Saved filters (`issue:read` / `issue:write`)
 
 ```sh

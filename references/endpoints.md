@@ -1324,6 +1324,79 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/goals/123/issues/ZEN-12"
 ```
 
+### `GET /api/hub/approvals`
+
+내 결재 목록(mine 이 없으면 내 차례인 결재, 한 번에 200건) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `mine` | query (주소 뒤 ?) |  | drafted(내가 올린 결재) · handled(내가 처리한 결재) · done(내가 관여했고 끝난 결재) |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 키 또는 번호로 좁히기 |
+| `offset` | query (주소 뒤 ?) |  | 건너뛸 건수(200건이 왔으면 다음 쪽이 있을 수 있어요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/approvals?mine=drafted"
+```
+
+### `GET /api/hub/approvals/{id}`
+
+결재 한 건(결재선과 단계별 상태) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 결재 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/approvals/123"
+```
+
+### `GET /api/hub/approvals/issue/{issueId}`
+
+이슈에 걸린 결재 목록 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `issueId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/approvals/issue/ZEN-12"
+```
+
+### `GET /api/hub/approvals/line/suggest`
+
+내 부서 기준으로 추천하는 결재선 · scope: `issue:read`
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/approvals/line/suggest"
+```
+
+### `POST /api/hub/approvals`
+
+결재 올리기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `title` | json (JSON 본문) | yes | 제목(100자까지) |
+| `body` | json (JSON 본문) |  | 내용(4000자까지) |
+| `approverIds` | json (JSON 본문) | yes | 결재자의 사용자 번호 목록(결재 순서대로, 10명까지) |
+| `issueId` | json (JSON 본문) |  | 결재를 걸 이슈 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"title":"연차 신청","body":"12월 1일부터 사흘","approverIds":["123"]}' "$ZENTA_URL/api/hub/approvals"
+```
+
+### `POST /api/hub/approvals/{id}/withdraw`
+
+내가 올린 결재 회수하기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 결재 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/approvals/123/withdraw"
+```
+
 ### `GET /api/hub/users/{id}`
 
 사람 한 명의 이름 · 부서 · 직함(메일은 안 실어요) · scope: `issue:read`
