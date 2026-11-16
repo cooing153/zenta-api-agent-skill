@@ -91,6 +91,8 @@ $Z POST /api/hub/issues/bulk --json '{"projectId":"ZEN","issueIds":["ZEN-12","ZE
 $Z POST /api/hub/issues/bulk/move --json '{"projectId":"ZEN","toProjectId":"<target key>","items":[{"issueId":"ZEN-12","statusId":"<status id>"}]}'
 ```
 
+- Watching works the same way: `$Z POST /api/hub/issues/bulk/watch --json '{"projectId":"ZEN","issueIds":["ZEN-12","ZEN-13"],"watch":true}'`
+  (`"watch":false` stops watching).
 - A token sends **at most 50 issues per call** (`400` above that — split the list), and every issue in the call
   counts as one write against the 120-per-minute limit: 50 issues are 50 writes. A call that does not fit answers
   `429 RATE_LIMITED` with `Retry-After` and changes nothing.
@@ -197,6 +199,30 @@ $Z GET /api/hub/sprints/<sprint id>/burndown --query projectId=ZEN   # {points: 
   answers `409 NOT_DELETED`, and one whose parent is still in the trash `409 PARENT_DELETED` (restore the parent
   first; the message names it when the owner can see it). **Deleting an issue is not possible with a token.**
 - An issue or project the owner cannot see answers `404`, like one that does not exist.
+
+## Parent issue, commits, pull requests, department issues (`issue:read` / `issue:write`)
+
+```sh
+$Z GET /api/hub/issues/ZEN-12/parent-options --query projectId=ZEN --query q=결제   # {items: [{id, key, title, typeName}], hasMore, rule?}
+$Z PUT /api/hub/issues/ZEN-12/parent --json '{"projectId":"ZEN","parentId":"ZEN-10"}'   # ZEN-12 goes under ZEN-10
+$Z DELETE /api/hub/issues/ZEN-12/parent --query projectId=ZEN --yes                     # 204 — both issues stay
+$Z GET /api/hub/issues/ZEN-10/child-options --query projectId=ZEN                       # issues that may go under ZEN-10
+$Z GET /api/hub/issues/ZEN-12/commits                                                    # {commits: [{sha, message, author, url, repository, branch, committedAt}], nextCursor?}
+$Z GET /api/hub/issues/ZEN-12/pull-requests                                              # {pullRequests: [{repo, number, title, state, url, author, branch, reviewers}]}
+$Z GET /api/hub/issues/department                                                        # {items, hasMore, nextOffset, departments} — issues assigned to the owner's department
+```
+
+- `PUT …/parent` is the same link as `POST …/subtasks` seen from the child. When the project has a hierarchy,
+  `rule` in parent-options tells which issue type the parent must be, and in child-options which types may go
+  under this issue (`excluded` lists the ones left out and why); a link that breaks it answers `400`.
+- Send `"ifParentId":"ZEN-9"` (or `--query ifParentId=ZEN-9` when taking off) to change the parent only if it
+  still is that issue — `409` otherwise, also when the owner cannot see the issue named there.
+- Commits and pull requests are the ones Git sent in for this issue (they stay after the connection is removed);
+  an issue with none answers an empty list. More commits: `--query cursor=<nextCursor>`. Author e-mails are left
+  out.
+- Department issues are the issues **assigned to a department** (the owner's own department and the ones under it;
+  `--query departmentId=<department id>` from `/api/hub/org/tree` for another). Only issues the owner can see are
+  listed.
 
 ## Goals (`issue:read` / `issue:write`)
 

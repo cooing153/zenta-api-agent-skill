@@ -1325,6 +1325,116 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/goals/123/issues/ZEN-12"
 ```
 
+### `GET /api/hub/issues/{id}/parent-options`
+
+이 이슈의 상위로 고를 수 있는 이슈 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+| `q` | query (주소 뒤 ?) |  | 키나 제목에서 찾을 낱말 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/ZEN-12/parent-options?projectId=ZEN"
+```
+
+### `GET /api/hub/issues/{id}/child-options`
+
+이 이슈의 하위로 넣을 수 있는 이슈 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+| `q` | query (주소 뒤 ?) |  | 키나 제목에서 찾을 낱말 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/ZEN-12/child-options?projectId=ZEN"
+```
+
+### `PUT /api/hub/issues/{id}/parent`
+
+이슈의 상위 정하기(이미 상위가 있으면 옮겨져요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | json (JSON 본문) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+| `parentId` | json (JSON 본문) | yes | 상위가 될 이슈 키 또는 번호 |
+| `ifParentId` | json (JSON 본문) |  | 지금 상위가 이 이슈일 때만 바꾸기(빈 값은 상위가 없을 때만) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"projectId":"ZEN","parentId":"ZEN-10"}' "$ZENTA_URL/api/hub/issues/ZEN-12/parent"
+```
+
+### `DELETE /api/hub/issues/{id}/parent`
+
+이슈를 상위에서 떼기(두 이슈는 그대로 남아요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+| `ifParentId` | query (주소 뒤 ?) |  | 지금 상위가 이 이슈일 때만 떼기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/issues/ZEN-12/parent?projectId=ZEN"
+```
+
+### `GET /api/hub/issues/{taskId}/commits`
+
+이슈에 이어진 commit(최근 것부터, 글쓴이 메일은 안 실어요) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `cursor` | query (주소 뒤 ?) |  | 앞 답의 nextCursor(더 오래된 commit) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/ZEN-12/commits"
+```
+
+### `GET /api/hub/issues/{taskId}/pull-requests`
+
+이슈에 이어진 PR과 검토자 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/ZEN-12/pull-requests"
+```
+
+### `GET /api/hub/issues/department`
+
+부서가 담당인 이슈(내가 볼 수 있는 것만) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `departmentId` | query (주소 뒤 ?) |  | 부서 번호(없으면 내 부서) |
+| `offset` | query (주소 뒤 ?) |  | 건너뛸 건수 |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 받을 건수(기본 50, 200까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/issues/department"
+```
+
+### `POST /api/hub/issues/bulk/watch`
+
+여러 이슈 한꺼번에 지켜보기 또는 그만 보기(토큰은 한 번에 50건까지이고 건수만큼 쓰기 한도에서 빠져요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | json (JSON 본문) | yes | 프로젝트 번호 또는 키 |
+| `issueIds` | json (JSON 본문) | yes | 이슈 키 목록 |
+| `watch` | json (JSON 본문) | yes | true 면 지켜보기, false 면 그만 보기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","issueIds":["ZEN-12","ZEN-13"],"watch":true}' "$ZENTA_URL/api/hub/issues/bulk/watch"
+```
+
 ### `GET /api/hub/approvals`
 
 내 결재 목록(mine 이 없으면 내 차례인 결재, 한 번에 200건) · scope: `issue:read`
