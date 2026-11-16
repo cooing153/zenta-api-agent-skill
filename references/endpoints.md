@@ -1625,6 +1625,140 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"projectId":"ZEN","title":"배포 절차","doc":{"v":1,"eol":false,"blocks":[{"id":"b1","kind":"paragraph","spans":[{"kind":"text","text":"빌드한 뒤 배포해요"}]}]},"body":"빌드한 뒤 배포해요","revision":3}' "$ZENTA_URL/api/hub/wiki/DOCID"
 ```
 
+### `POST /api/hub/wiki/{id}/copy`
+
+문서 복사하기(같은 곳이나 다른 프로젝트로, 한 번에 200장까지이고 사본 수만큼 쓰기 한도에서 빠져요) · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 복사할 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 그 문서가 있는 프로젝트 번호 또는 키. projectId · scope 중 하나는 필수예요 |
+| `scope` | query (주소 뒤 ?) |  | org 면 회사 문서 |
+| `toProjectId` | json (JSON 본문) |  | 복사해 둘 프로젝트 번호 또는 키. toProjectId · toScope 중 하나는 필수예요 |
+| `toScope` | json (JSON 본문) |  | org 면 회사 문서로 |
+| `parentId` | json (JSON 본문) |  | 이 문서 아래에 두기(없으면 맨 위) |
+| `withChildren` | json (JSON 본문) |  | true 면 하위 문서도 함께 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"toProjectId":"ZEN","withChildren":true}' "$ZENTA_URL/api/hub/wiki/123/copy?projectId=ZEN"
+```
+
+### `PUT /api/hub/wiki/{id}/labels`
+
+문서 라벨 바꾸기(목록이 통째로 바뀌어요) · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 번호 또는 키. projectId · scope 중 하나는 필수예요 |
+| `scope` | query (주소 뒤 ?) |  | org 면 회사 문서 |
+| `labelIds` | json (JSON 본문) | yes | 붙일 라벨 번호 목록(빈 목록이면 다 떼요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"labelIds":["123"]}' "$ZENTA_URL/api/hub/wiki/123/labels?projectId=ZEN"
+```
+
+### `POST /api/hub/wiki-folders`
+
+문서 폴더 만들기 · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | json (JSON 본문) |  | 프로젝트 번호 또는 키. projectId · scope 중 하나는 필수예요 |
+| `scope` | json (JSON 본문) |  | org 면 회사 문서 |
+| `title` | json (JSON 본문) | yes | 폴더 이름 |
+| `parentId` | json (JSON 본문) |  | 이 폴더 아래에 두기(없으면 맨 위) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","title":"회의록"}' "$ZENTA_URL/api/hub/wiki-folders"
+```
+
+### `PATCH /api/hub/wiki-folders/{id}`
+
+문서 폴더 이름 바꾸기 · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 폴더 번호 |
+| `projectId` | json (JSON 본문) |  | 프로젝트 번호 또는 키. projectId · scope 중 하나는 필수예요 |
+| `scope` | json (JSON 본문) |  | org 면 회사 문서 |
+| `title` | json (JSON 본문) | yes | 새 이름 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"projectId":"ZEN","title":"주간 회의록"}' "$ZENTA_URL/api/hub/wiki-folders/123"
+```
+
+### `POST /api/hub/wiki/{id}/favorite`
+
+문서를 내 즐겨찾기에 넣기 또는 빼기 · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | json (JSON 본문) |  | 프로젝트 번호 또는 키. projectId · scope 중 하나는 필수예요 |
+| `scope` | json (JSON 본문) |  | org 면 회사 문서 |
+| `favorite` | json (JSON 본문) | yes | true 면 넣기, false 면 빼기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","favorite":true}' "$ZENTA_URL/api/hub/wiki/123/favorite"
+```
+
+### `GET /api/hub/wiki/{id}/watch`
+
+내가 이 문서를 지켜보고 있는지 · scope: `doc:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 번호 또는 키. projectId · scope 중 하나는 필수예요 |
+| `scope` | query (주소 뒤 ?) |  | org 면 회사 문서 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/wiki/123/watch?projectId=ZEN"
+```
+
+### `POST /api/hub/wiki/{id}/watch`
+
+문서 지켜보기 켜기 또는 끄기(바뀌면 알림을 받아요) · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 번호 또는 키. projectId · scope 중 하나는 필수예요 |
+| `scope` | query (주소 뒤 ?) |  | org 면 회사 문서 |
+| `watching` | json (JSON 본문) | yes | true 면 켜기, false 면 끄기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"watching":true}' "$ZENTA_URL/api/hub/wiki/123/watch?projectId=ZEN"
+```
+
+### `GET /api/hub/wiki/templates`
+
+문서 템플릿 목록 · scope: `doc:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 번호 또는 키. projectId · scope 중 하나는 필수예요 |
+| `scope` | query (주소 뒤 ?) |  | org 면 회사 문서 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/wiki/templates?projectId=ZEN"
+```
+
+### `POST /api/hub/wiki/{id}/undelete`
+
+휴지통의 문서 되살리기 · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | json (JSON 본문) |  | 프로젝트 번호 또는 키. projectId · scope 중 하나는 필수예요 |
+| `scope` | json (JSON 본문) |  | org 면 회사 문서 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN"}' "$ZENTA_URL/api/hub/wiki/123/undelete"
+```
+
 ### `POST /api/hub/wiki/{id}/move`
 
 문서 옮기기(다른 문서 아래로·다른 프로젝트로) · scope: `doc:write`

@@ -453,6 +453,33 @@ $Z POST /api/hub/wiki/<id>/move --query projectId=ZEN --json '{"toProjectId":"ZE
   in Zenta.
 - **Deleting documents is not possible with a token.** Tell the user to delete it in Zenta.
 
+## Documents: copy, folders, labels, favorite, watch, restore (`doc:read` / `doc:write`)
+
+```sh
+$Z POST /api/hub/wiki/<id>/copy --query projectId=ZEN --json '{"toProjectId":"ZEN","withChildren":true}'   # {page, docs}
+$Z POST /api/hub/wiki-folders --json '{"projectId":"ZEN","title":"회의록"}'
+$Z PATCH /api/hub/wiki-folders/<folder id> --json '{"projectId":"ZEN","title":"주간 회의록"}'
+$Z PUT /api/hub/wiki/<id>/labels --query projectId=ZEN --json '{"labelIds":["<label id>"]}'   # the whole new list
+$Z POST /api/hub/wiki/<id>/favorite --json '{"projectId":"ZEN","favorite":true}'
+$Z GET /api/hub/wiki/<id>/watch --query projectId=ZEN
+$Z POST /api/hub/wiki/<id>/watch --query projectId=ZEN --json '{"watching":true}'
+$Z GET /api/hub/wiki/templates --query projectId=ZEN
+$Z POST /api/hub/wiki/<id>/undelete --json '{"projectId":"ZEN"}'                               # bring back from the trash
+```
+
+- Where the project goes differs per route: copy, labels, watch and templates read it from the query
+  (`--query projectId=…` or `--query scope=org`); folders, favorite and restore take it in the JSON.
+- Copy needs a destination (`toProjectId` or `"toScope":"org"`), also for a copy in the same place; `parentId` puts
+  the copy under a document, `withChildren` copies the sub-documents too (up to 200 documents a call). Every copied
+  document counts as one write against the 120-per-minute limit; a call that does not fit answers `429` and copies
+  nothing. A copy of a document with restricted viewing stays restricted, open to the token owner only, and cannot
+  go to the company space.
+- `labelIds` replaces the document's labels (an empty list removes all); read the document first and keep the ones
+  that should stay. Favorite and watch are the token owner's own settings.
+- A document, folder or project the owner cannot see answers `404` «문서를 찾을 수 없어요», like one that does not
+  exist.
+- Deleting a document or a folder is not possible with a token; restoring a deleted document is.
+
 ## Chat: read and post (`chat:read` / `chat:write`)
 
 ```sh

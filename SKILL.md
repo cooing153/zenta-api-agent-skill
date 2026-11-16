@@ -96,6 +96,8 @@ Things that trip people up:
   — see `references/recipes.md`.
 - Several issues can be changed or moved in one call (`/api/hub/issues/bulk`, at most 50 per call, each counted as
   a write) — always show the list and get a clear yes first; read `failed` in the answer.
+- Documents beyond writing: copy a document (with its sub-documents), make and rename folders, set labels,
+  favorite, watch, list templates, restore a deleted document (`/api/hub/wiki/<id>/copy`, `/api/hub/wiki-folders`).
 - Channels themselves: browse public ones, make a channel, rename or archive it, invite people, leave
   (`/api/v1/streams`, `/api/v1/streams/browse`). Archiving and opening a private channel affect everyone — confirm
   first; a channel cannot be deleted with a token.
