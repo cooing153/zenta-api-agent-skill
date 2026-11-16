@@ -23,6 +23,20 @@ $Z GET /api/hub/issues/ZEN-12                                                 # 
 - Pages: `limit` (default 50, max 200). If the answer has `"hasMore": true`, ask again with `offset=<nextOffset>`.
 - Status categories: `todo` · `doing` · `hold` · `done` · `closed`.
 
+## Search by words (`issue:read`)
+
+```sh
+$Z GET /api/hub/search --query kind=issue --query q=로그인                       # {items: [{kind, id, key, title, …}]}
+$Z GET /api/hub/search --query kind=comment --query q=배포 --query projectId=ZEN # comments that mention it
+```
+
+- `kind` is required and takes **one** value: `issue` or `comment`. Documents have their own search
+  (`/api/hub/wiki/search`, `doc:read`).
+- Only what the token owner can see comes back. Optional: `projectId`, `limit` (30 by default, up to 300), and
+  `after` / `before` (`YYYY-MM-DD`; `after` includes that day, `before` stops before it). The dates compare an
+  issue's **last change** but a comment's **creation** — an old comment edited today is not «after today». Other filters are refused with `400` — to filter by status, assignee
+  or label use `GET /api/hub/issues` instead.
+
 ## Create an issue (`issue:write`)
 
 ```sh
@@ -43,6 +57,13 @@ $Z POST /api/hub/issues/ZEN-12/comments --json '{"projectId":"ZEN","body":"원�
 ```
 
 Confirm the text with the user first — everyone watching the issue is notified.
+
+```sh
+$Z POST /api/hub/issues/ZEN-12/comments/<comment id> --json '{"projectId":"ZEN","body":"원인은 **캐시**였어요"}'
+```
+
+Editing works only on a comment the token owner wrote (`403` otherwise); the id is in `comments` when you read the
+issue. The new `body` replaces the old one. Deleting a comment is not possible with a token.
 
 ## Change fields safely (`issue:write`)
 
@@ -96,6 +117,58 @@ $Z GET /api/hub/fields/definitions --query projectId=ZEN     # [{id, name, type,
 $Z GET /api/hub/fields/values/ZEN-12
 $Z POST /api/hub/fields/values/ZEN-12 --json '{"values":[{"fieldId":"<id>","value":"높음"}]}'
 ```
+
+## Watch, blocked, vote, move, history (`issue:read` / `issue:write`)
+
+```sh
+$Z POST '/api/hub/issues/ZEN-12/watch?projectId=ZEN'                                   # 204 — the owner now gets its notifications
+$Z DELETE /api/hub/issues/ZEN-12/watch --query projectId=ZEN --yes                     # 204
+$Z POST /api/hub/issues/ZEN-12/block --json '{"projectId":"ZEN","reason":"디자인 시안을 기다려요"}'   # {blockedReason}
+$Z DELETE /api/hub/issues/ZEN-12/block --query projectId=ZEN --yes                     # 204
+$Z POST '/api/hub/issues/ZEN-12/vote?projectId=ZEN'                                    # {vote: {count, …}}
+$Z DELETE /api/hub/issues/ZEN-12/vote --query projectId=ZEN --yes
+
+$Z GET /api/hub/activity/issue/ZEN-12                                                  # [{action, actor: {id, name}, at, …}], newest first
+
+$Z POST /api/hub/issues/ZEN-12/move --json '{"projectId":"ZEN","toProjectId":"OPS","dryRun":true}'   # the plan, nothing changes
+$Z POST /api/hub/issues/ZEN-12/move --json '{"projectId":"ZEN","toProjectId":"OPS","statusId":"<id from the plan>"}'
+```
+
+- Watching, the blocked mark and the vote belong to the token owner's own view of the issue or to the issue's
+  state — taking them off (`DELETE`, needs `--yes`) deletes nothing. `reason` is required, up to 200 characters;
+  marking an issue blocked needs the right to edit it.
+- **History** comes a page at a time. When there is more, the helper prints the `--query cursor=…` to add for the
+  next page.
+- **Moving an issue to another project gives it a new key** (`ZEN-12` becomes the next number of the target project); the old key keeps working as a
+  link. Always ask for the plan first (`dryRun`): it lists the target's `statuses` and `types`, the suggested
+  `statusId`/`typeId`, and `drops`. In `drops`, these are **removed** by the move: `sprint`, `release`, `group`,
+  `parent` (true/false), `milestones` and `customFields` (how many). These are **kept but worth telling**:
+  `peopleOutside` (assignees and watchers who are not members of the target project — they stay on the issue),
+  `deptsOutside` (assigned departments with no member there — they stay too) and `membersOnly` (the issue is
+  visible to project members only, so after the move only the target project's members see it). Show the user
+  both lists and confirm before the real call. Leaving `statusId`/`typeId` out uses the suggested ones.
+- Moving needs the right to edit and delete issues in the source project and to create issues in the target
+  (`403 MOVE_SOURCE_FORBIDDEN` / `MOVE_TARGET_FORBIDDEN`). An issue with sub-issues cannot be moved
+  (`409 MOVE_HAS_CHILDREN`) — move or unlink the sub-issues first. If `MOVE_SOURCE_FORBIDDEN` comes back although
+  the owner may edit and delete there, tell the user to move it in Zenta or ask a project admin.
+
+## Projects: make and change (`issue:write`)
+
+```sh
+$Z POST /api/hub/projects --json '{"title":"모바일 앱","key":"APP","template":"software"}'   # {project: {id, key, name, …}}
+$Z POST /api/hub/projects/APP --json '{"description":"2027 상반기 출시"}'                    # only the fields you send
+$Z POST /api/hub/projects/APP --json '{"archived":true}'                                    # archive; false brings it back
+```
+
+- A new project cannot be removed with a token (deleting is done in Zenta) — confirm the name and key with the
+  user first. At first only the token owner (as its admin) and organization admins see it; adding members is done
+  in Zenta. `key` is the prefix of its issue keys (key `APP` → issues `APP` + a number); leave it out and
+  Zenta derives one from the name. `template` is one of `general` · `software` · `support` · `approval` ·
+  `marketing` · `sales`.
+- A token sends only `title`, `key`, `emoji` and `template` when creating. Copying another project, an organization
+  template, members and document spaces are done in Zenta (`400` otherwise).
+- Editing needs the right to manage that project (`403` otherwise): `title`, `description`, `emoji`, `hexColor`
+  (`#rrggbb`, `""` for none) and `archived`. Archiving hides the project from the lists but keeps everything.
 
 ## Labels, sprints, groups, sub-issues (`issue:read` / `issue:write`)
 
@@ -263,7 +336,31 @@ $Z GET /api/hub/wiki --query projectId=ZEN                      # page tree of a
 $Z GET /api/hub/wiki --query scope=org                          # company documents
 $Z GET /api/hub/wiki/search --query scope=all --query q=온보딩  # everything you may see
 $Z GET /api/hub/wiki/<id> --query projectId=ZEN                 # one page: title, body (markdown), revision
+$Z GET /api/hub/wiki/<id>/revisions --query projectId=ZEN       # {revisions: [{revision, title, author, createdAt}], nextCursor?}
+$Z GET /api/hub/wiki/<id>/revisions/3 --query projectId=ZEN     # that version's title and body
+$Z GET /api/hub/wiki/<id>/comments --query projectId=ZEN        # {threads: [{id, blockId, resolvedAt, comments: [{authorName, body, …}]}], resolvedTotal}
 ```
+
+- The revision list is newest first, a page at a time: pass `nextCursor` back as `--query cursor=…`. Going back to
+  an old version is done in Zenta — with a token you can read it and, if the user wants, write its body back as a
+  new version (`PUT`, see below).
+- Comments hang on a paragraph (`blockId`). Each entry of `threads` is one thread: the first comment and its
+  replies. A missing revision number answers `400`.
+
+## Comment on documents (`doc:write`)
+
+```sh
+$Z POST /api/hub/wiki/<id>/comments --query projectId=ZEN --json '{"blockId":"<block id>","x":0,"y":0,"body":"이 숫자를 확인해 주세요"}'
+$Z POST /api/hub/wiki/<id>/comments/<thread id>/replies --query projectId=ZEN --json '{"body":"고쳤어요"}'
+$Z POST /api/hub/wiki/<id>/comments/<thread id>/resolve --query projectId=ZEN --json '{"resolved":true}'
+```
+
+- `blockId` is the `id` of a block in `doc.blocks` from reading the page — pick the paragraph the comment is about.
+  `x` and `y` place the marker inside that paragraph (0 to 1); send `0` for both when you have no reason to choose.
+- A comment is up to 4,000 characters. Starting a new thread answers `400` when the page already has 200 open
+  ones — resolve some first. `resolved: false` reopens a thread. Confirm the text with the user first: people and
+  departments mentioned in it are notified (those who can read the page).
+- Editing or deleting a comment is not possible with a token.
 
 ## Write documents (`doc:write`)
 

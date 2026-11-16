@@ -15,7 +15,7 @@ import { basename } from 'node:path'
 import { docFromMarkdown, markdownFromDoc, pagePayload, unwritableKinds } from './markdown-doc.mjs'
 
 const SERVICE_URL = 'https://board.zentaoffice.com'
-const VERSION = '1.8.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
+const VERSION = '1.11.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
 const HELP = `사용법: node zenta.mjs <check | METHOD PATH> [옵션]
   --query k=v        주소 뒤 ?k=v (여러 번)
   --json '<JSON>'    JSON 본문
@@ -281,6 +281,9 @@ async function request(method, path, a) {
       return
     }
     out(hide(data === null ? text || `(${r.status}, 본문 없음)` : JSON.stringify(data, null, 2)))
+    // Some lists hand the next page over in a response header, not in the body (issue activity).
+    const next = r.headers.get('x-zenta-next-cursor')
+    if (next) err(`다음 쪽이 있어요: 같은 요청에 --query cursor=${next} 를 붙여 주세요.`)
     return
   }
 }

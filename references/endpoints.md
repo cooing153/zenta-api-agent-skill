@@ -15,7 +15,7 @@ Every request sends `Authorization: Bearer $ZENTA_TOKEN` to `$ZENTA_URL` (the Ze
 | `doc:read` | 문서 보기 |
 | `doc:write` | 문서 쓰기 |
 
-An endpoint with no scope works with any personal token — except the inbox, whose `source` value decides the scope (see its `source` parameter). A bot token opens `POST /api/v1/messages` only.
+An endpoint with no scope works with any personal token. On a few endpoints the scope depends on one parameter (the inbox's `source`, search's `kind`): the endpoint lists which value needs which scope, and that parameter must be sent with exactly one of those values. A bot token opens `POST /api/v1/messages` only.
 
 ## Refusals
 
@@ -850,6 +850,179 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/miles
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/issues/ZEN-12/relations/blocking/ZEN-13?projectId=ZEN"
 ```
 
+### `POST /api/hub/issues/{taskId}/watch`
+
+이슈 지켜보기(바뀌면 토큰 주인에게 알림이 와요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/issues/ZEN-12/watch?projectId=ZEN"
+```
+
+### `DELETE /api/hub/issues/{taskId}/watch`
+
+이슈 지켜보기 그만두기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/issues/ZEN-12/watch?projectId=ZEN"
+```
+
+### `POST /api/hub/issues/{taskId}/block`
+
+이슈에 막힘 표시하기(사유를 적어요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | json (JSON 본문) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+| `reason` | json (JSON 본문) | yes | 막힌 까닭(200자까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","reason":"디자인 시안을 기다려요"}' "$ZENTA_URL/api/hub/issues/ZEN-12/block"
+```
+
+### `DELETE /api/hub/issues/{taskId}/block`
+
+이슈의 막힘 표시 풀기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/issues/ZEN-12/block?projectId=ZEN"
+```
+
+### `POST /api/hub/issues/{taskId}/move`
+
+이슈를 다른 프로젝트로 옮기기(키가 새로 붙어요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | json (JSON 본문) | yes | 지금 프로젝트 번호 또는 키 |
+| `toProjectId` | json (JSON 본문) | yes | 옮길 프로젝트 번호 또는 키 |
+| `dryRun` | json (JSON 본문) |  | true 면 옮기지 않고 계획만(고를 상태와 유형, 비워지는 것) |
+| `statusId` | json (JSON 본문) |  | 옮긴 뒤 상태 번호(계획의 statuses 중 하나, 비우면 제안값) |
+| `typeId` | json (JSON 본문) |  | 옮긴 뒤 유형 번호(계획의 types 중 하나, 비우면 제안값) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","toProjectId":"OPS","dryRun":true}' "$ZENTA_URL/api/hub/issues/ZEN-12/move"
+```
+
+### `GET /api/hub/activity/issue/{id}`
+
+이슈의 활동 이력(누가 언제 무엇을 바꿨는지) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `cursor` | query (주소 뒤 ?) |  | 다음 쪽(응답 머리글 X-Zenta-Next-Cursor 의 값) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/activity/issue/ZEN-12"
+```
+
+### `POST /api/hub/issues/{taskId}/comments/{commentId}`
+
+내가 단 코멘트 고치기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `commentId` | path (주소 안) | yes | 코멘트 번호(이슈를 읽을 때 comments 의 id) |
+| `projectId` | json (JSON 본문) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+| `body` | json (JSON 본문) | yes | 새 코멘트(마크다운, 20,000자까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","body":"배포는 내일이에요"}' "$ZENTA_URL/api/hub/issues/ZEN-12/comments/42"
+```
+
+### `POST /api/hub/issues/{taskId}/vote`
+
+이슈 추천하기(👍) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/issues/ZEN-12/vote?projectId=ZEN"
+```
+
+### `DELETE /api/hub/issues/{taskId}/vote`
+
+이슈 추천 거두기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `taskId` | path (주소 안) | yes | 이슈 키(예: ZEN-12) 또는 번호 |
+| `projectId` | query (주소 뒤 ?) | yes | 그 이슈의 프로젝트 번호 또는 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/issues/ZEN-12/vote?projectId=ZEN"
+```
+
+### `GET /api/hub/search`
+
+이슈나 코멘트를 낱말로 찾기(이슈 보기 권한이 있어야 해요) · scope: by `kind` — `comment` needs `issue:read`, `issue` needs `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `q` | query (주소 뒤 ?) | yes | 찾을 낱말 |
+| `kind` | query (주소 뒤 ?) | yes | issue(이슈) 또는 comment(코멘트) 중 하나 |
+| `projectId` | query (주소 뒤 ?) |  | 이 프로젝트 안에서만(번호 또는 키) |
+| `after` | query (주소 뒤 ?) |  | 이 날짜부터(YYYY-MM-DD, 이슈는 마지막으로 바뀐 날이고 코멘트는 쓴 날) |
+| `before` | query (주소 뒤 ?) |  | 이 날짜 전까지(YYYY-MM-DD, 그날은 안 들어가요) |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 받을 건수(기본 30, 300까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/search?kind=issue&q=%EB%A1%9C%EA%B7%B8%EC%9D%B8"
+```
+
+### `POST /api/hub/projects`
+
+프로젝트 만들기(만든 사람이 관리자가 돼요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `title` | json (JSON 본문) | yes | 프로젝트 이름 |
+| `key` | json (JSON 본문) |  | 이슈 번호 앞에 붙는 키(예: ZEN, 비우면 이름에서 정해요) |
+| `emoji` | json (JSON 본문) |  | 이름 앞에 붙일 이모지 하나 |
+| `template` | json (JSON 본문) |  | general · software · support · approval · marketing · sales 중 하나(기본 general) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"title":"모바일 앱","key":"APP","template":"software"}' "$ZENTA_URL/api/hub/projects"
+```
+
+### `POST /api/hub/projects/{id}`
+
+프로젝트 고치기(보낸 칸만 바뀌어요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 프로젝트 번호 또는 키 |
+| `title` | json (JSON 본문) |  | 프로젝트 이름 |
+| `description` | json (JSON 본문) |  | 설명 |
+| `emoji` | json (JSON 본문) |  | 이름 앞에 붙일 이모지 하나 |
+| `hexColor` | json (JSON 본문) |  | 프로젝트 색(#rrggbb, 빈 글자면 색 없음) |
+| `archived` | json (JSON 본문) |  | true 면 보관, false 면 되돌리기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"description":"2027 상반기 출시"}' "$ZENTA_URL/api/hub/projects/APP"
+```
+
 ### `GET /api/v1/streams`
 
 내가 든 채널 목록 · scope: `chat:read`
@@ -949,7 +1122,7 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/emoji"
 
 ### `GET /api/hub/notifications`
 
-알림함 읽기(source 로 고른 곳의 읽기 권한이 있어야 해요) · scope: any personal token
+알림함 읽기(source 로 고른 곳의 읽기 권한이 있어야 해요) · scope: by `source` — `board` needs `issue:read`, `chat` needs `chat:read`, `doc` needs `doc:read`
 
 | Field | Where | Required | Description |
 |---|---|---|---|
@@ -964,7 +1137,7 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/notifications?s
 
 ### `POST /api/hub/notifications/{id}/read`
 
-알림 하나를 읽음으로(source 로 고른 곳의 쓰기 권한이 있어야 해요) · scope: any personal token
+알림 하나를 읽음으로(source 로 고른 곳의 쓰기 권한이 있어야 해요) · scope: by `source` — `board` needs `issue:write`, `chat` needs `chat:write`, `doc` needs `doc:write`
 
 | Field | Where | Required | Description |
 |---|---|---|---|
@@ -1067,4 +1240,99 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: applicatio
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"toProjectId":"ZEN","parentId":"PARENTID"}' "$ZENTA_URL/api/hub/wiki/DOCID/move?projectId=ZEN"
+```
+
+### `GET /api/hub/wiki/{id}/comments`
+
+문서에 달린 코멘트 묶음(문단마다, 답글 포함) · scope: `doc:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키(회사 문서면 scope=org) |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/wiki/DOCID/comments?projectId=ZEN"
+```
+
+### `POST /api/hub/wiki/{id}/comments`
+
+문서의 문단에 코멘트 달기(열린 코멘트는 한 문서에 200개까지) · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키(회사 문서면 scope=org) |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+| `blockId` | json (JSON 본문) | yes | 코멘트를 붙일 문단의 번호(문서를 읽을 때 doc.blocks 의 id) |
+| `x` | json (JSON 본문) | yes | 문단 안 가로 자리(0 에서 1 사이, 모르면 0) |
+| `y` | json (JSON 본문) | yes | 문단 안 세로 자리(0 에서 1 사이, 모르면 0) |
+| `body` | json (JSON 본문) | yes | 코멘트(4,000자까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"blockId":"b1","x":0,"y":0,"body":"이 숫자를 확인해 주세요"}' "$ZENTA_URL/api/hub/wiki/DOCID/comments?projectId=ZEN"
+```
+
+### `POST /api/hub/wiki/{id}/comments/{thread}/replies`
+
+문서 코멘트에 답글 달기 · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키(회사 문서면 scope=org) |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+| `thread` | path (주소 안) | yes | 코멘트 묶음 번호(코멘트를 읽을 때 받은 id) |
+| `body` | json (JSON 본문) | yes | 답글(4,000자까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"body":"고쳤어요"}' "$ZENTA_URL/api/hub/wiki/DOCID/comments/THREADID/replies?projectId=ZEN"
+```
+
+### `POST /api/hub/wiki/{id}/comments/{thread}/resolve`
+
+문서 코멘트를 해결로 닫거나 다시 열기 · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키(회사 문서면 scope=org) |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+| `thread` | path (주소 안) | yes | 코멘트 묶음 번호(코멘트를 읽을 때 받은 id) |
+| `resolved` | json (JSON 본문) | yes | true 면 해결로 닫고 false 면 다시 열어요 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"resolved":true}' "$ZENTA_URL/api/hub/wiki/DOCID/comments/THREADID/resolve?projectId=ZEN"
+```
+
+### `GET /api/hub/wiki/{id}/revisions`
+
+문서의 판 이력(누가 언제 고쳤는지, 새 판부터) · scope: `doc:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키(회사 문서면 scope=org) |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+| `cursor` | query (주소 뒤 ?) |  | 다음 쪽(앞 답의 nextCursor) |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 받을 판 수 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/wiki/DOCID/revisions?projectId=ZEN"
+```
+
+### `GET /api/hub/wiki/{id}/revisions/{rev}`
+
+문서의 옛 판 하나(그때의 제목과 본문) · scope: `doc:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키(회사 문서면 scope=org) |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+| `rev` | path (주소 안) | yes | 판 번호(판 이력의 revision) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/wiki/DOCID/revisions/3?projectId=ZEN"
 ```

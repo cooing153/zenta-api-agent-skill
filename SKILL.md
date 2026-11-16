@@ -92,6 +92,13 @@ Things that trip people up:
   Sprint and group writes take the issue's **id**, not its key. `labels` in a patch replaces the whole list.
   Taking an issue out of a sprint or unlinking a sub-issue is a `DELETE` (needs `--yes`; confirm with the user
   first). Nothing is deleted — the issues stay.
+- Documents also take comments on a paragraph (read, add, reply, resolve) and keep a revision history you can read
+  — see `references/recipes.md`.
+- Search issues or comments by words (`/api/hub/search`, pick one `kind`), and make or change a project
+  (`/api/hub/projects` — confirm name and key first; a project cannot be deleted with a token).
+- Watch or stop watching an issue, mark it blocked (with a reason) or clear that, vote, read its history, edit your
+  own comment, and move it to another project — ask for the move plan (`dryRun`) and confirm with the user first:
+  the issue gets a new key and may lose its sprint, release or field values. See `references/recipes.md`.
 - Releases, milestones, relations, time logs: read, make, change, add to and take out of them (`/api/hub/releases`,
   `/api/hub/milestones`, `/api/hub/issues/<key>/relations`, `/api/hub/timelogs`). Editing a time log or a milestone
   replaces all of it — send every field. Shipping a release and finishing a sprint cannot be undone: confirm first.
