@@ -301,6 +301,43 @@ $Z GET /api/hub/search/files --query kind=issue --query q=계약서             
   exactly one of the two.
 - Deleting a board, a dashboard or a gadget, and the exports, are not possible with a token.
 
+## Plans, teams, who to ask (`issue:read` / `issue:write`)
+
+```sh
+$Z GET /api/hub/plans                                        # plans the owner can see: {id, publicId, name, projectCount, viewerRole, canEdit}
+$Z GET /api/hub/plans/<publicId>                             # + projects and viewers
+$Z GET /api/hub/plans/<publicId>/summary                     # {plan, projects: […progress per project], window}
+$Z GET /api/hub/plans/<publicId>/summary --query windowKind=absolute --query from=2026-10-01 --query to=2026-12-31
+$Z POST /api/hub/plans --json '{"name":"하반기 출시 계획","projectIds":["<project id>"]}'
+$Z POST /api/hub/plans/<publicId> --json '{"name":"하반기 출시 계획","description":"10월 출시까지"}'    # send both
+$Z POST /api/hub/plans/<publicId>/projects --json '{"projectId":"ZEN"}'
+$Z POST /api/hub/plans/<publicId>/viewers --json '{"userId":"<user id>","role":"view"}'               # view or edit
+$Z POST /api/hub/plans/<publicId>/viewers/<user id>/role --json '{"role":"edit"}'
+$Z DELETE /api/hub/plans/<publicId>/viewers/<user id> --yes                                          # the person and the plan stay
+$Z GET /api/hub/plans/<publicId>/capacity                    # {lanes: [{id, weeklyCapacity}], teams, projects, unassigned, weeks, totals}
+$Z POST /api/hub/plans/<publicId>/capacity/lanes --json '{"teamId":"<team id>","projectId":"<project id>"}'   # {id}
+$Z POST /api/hub/plans/<publicId>/capacity/lanes/<lane id> --json '{"weeklyCapacity":12.5}'           # 204
+$Z GET /api/hub/plans/<publicId>/capacity/lanes/<lane id>/velocity      # {sprints, unit} — what the team finished before
+$Z POST /api/hub/plans/<publicId>/capacity/items --json '{"projectId":"<project id>","releaseId":"<release id>","laneId":"<lane id>"}'   # 204
+$Z GET /api/hub/teams                                        # [{id, name, memberCount}]
+$Z GET /api/hub/teams/<team id>/members                      # [{userId, name, addedAt}]
+$Z GET /api/hub/users/who-to-ask --query projectId=ZEN       # {orgAdmins, projectManagers} — whom to ask for access
+```
+
+- A plan gathers several projects into one long-range view. It is named by its `publicId`. The summary's default
+  window is relative to today; `windowKind=relative` takes `toNow`, `fromNow` and `unit` (`days`, `weeks`,
+  `months`), `windowKind=absolute` takes `from` and `to`.
+- Viewers are the people a plan is shared with (`view` reads, `edit` changes). The plan's owner and organization
+  admins manage them.
+- A lane is one team working on one project of the plan. Its `weeklyCapacity` is a number you set — read
+  `…/velocity` and send its weekly figure; `null` clears it and the lane is no longer scheduled.
+- `capacity/items` puts a release on a lane by hand. Leave `laneId` out to go back to automatic assignment (a
+  project with a single lane then uses that lane); leave `releaseId` out for the open issues outside an unreleased
+  release.
+- Taking a project out of a plan, deleting a lane or a plan, and making or changing teams are done on the screen:
+  the first two delete what was planned there, and a team's members inherit its roles.
+- `who-to-ask` is the answer to «I cannot see or change this — who can let me?».
+
 ## Goals (`issue:read` / `issue:write`)
 
 ```sh

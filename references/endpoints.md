@@ -1785,6 +1785,228 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/unread"
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"content":"고친 글이에요"}' "$ZENTA_URL/api/v1/messages/123"
 ```
 
+### `GET /api/hub/plans`
+
+볼 수 있는 계획 목록 · scope: `issue:read`
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/plans"
+```
+
+### `GET /api/hub/plans/{id}`
+
+계획 하나와 담긴 프로젝트와 볼 수 있는 사람 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK"
+```
+
+### `GET /api/hub/plans/{id}/summary`
+
+계획에 담긴 프로젝트마다의 진행 요약 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+| `windowKind` | query (주소 뒤 ?) |  | relative(지금 기준) 또는 absolute(날짜로), 비우면 기본 기간 |
+| `toNow` | query (주소 뒤 ?) |  | relative 일 때 지금까지 몇 단위 전부터 |
+| `fromNow` | query (주소 뒤 ?) |  | relative 일 때 지금부터 몇 단위 뒤까지 |
+| `unit` | query (주소 뒤 ?) |  | relative 의 단위: days · weeks · months |
+| `from` | query (주소 뒤 ?) |  | absolute 일 때 시작일(YYYY-MM-DD) |
+| `to` | query (주소 뒤 ?) |  | absolute 일 때 끝일(YYYY-MM-DD) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK/summary"
+```
+
+### `POST /api/hub/plans`
+
+계획 만들기(만든 사람이 임자가 돼요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `name` | json (JSON 본문) | yes | 계획 이름(80자까지) |
+| `description` | json (JSON 본문) |  | 설명(2000자까지) |
+| `projectIds` | json (JSON 본문) |  | 처음부터 담을 프로젝트 번호 목록 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"name":"하반기 출시 계획"}' "$ZENTA_URL/api/hub/plans"
+```
+
+### `POST /api/hub/plans/{id}`
+
+계획 이름과 설명 고치기(둘 다 보내요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+| `name` | json (JSON 본문) | yes | 계획 이름(80자까지) |
+| `description` | json (JSON 본문) | yes | 설명(2000자까지, 빈 값이면 비워요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"name":"하반기 출시 계획","description":"10월 출시까지"}' "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK"
+```
+
+### `POST /api/hub/plans/{id}/projects`
+
+계획에 프로젝트 담기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+| `projectId` | json (JSON 본문) | yes | 프로젝트 번호나 키 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN"}' "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK/projects"
+```
+
+### `POST /api/hub/plans/{id}/viewers`
+
+계획을 볼 사람 넣기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+| `userId` | json (JSON 본문) | yes | 사용자 번호 |
+| `role` | json (JSON 본문) | yes | view(보기만) 또는 edit(고치기) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"userId":"123","role":"view"}' "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK/viewers"
+```
+
+### `POST /api/hub/plans/{id}/viewers/{userId}/role`
+
+계획을 보는 사람의 역할 바꾸기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+| `userId` | path (주소 안) | yes | 사용자 번호 |
+| `role` | json (JSON 본문) | yes | view(보기만) 또는 edit(고치기) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"role":"edit"}' "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK/viewers/123/role"
+```
+
+### `DELETE /api/hub/plans/{id}/viewers/{userId}`
+
+계획을 보는 사람에서 빼기(그 사람의 계정은 그대로예요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+| `userId` | path (주소 안) | yes | 사용자 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK/viewers/123"
+```
+
+### `GET /api/hub/plans/{id}/capacity`
+
+계획의 팀별 주간 수용과 맡은 릴리스 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+| `weeks` | query (주소 뒤 ?) |  | 볼 주 수: 13 · 26 · 52(비우면 26) |
+| `scenario` | query (주소 뒤 ?) |  | 가정해 본 계획 번호(비우면 실제 계획) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK/capacity"
+```
+
+### `POST /api/hub/plans/{id}/capacity/lanes`
+
+계획에 팀 줄 더하기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+| `teamId` | json (JSON 본문) | yes | 팀 번호 |
+| `projectId` | json (JSON 본문) | yes | 그 팀이 일하는 프로젝트 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"teamId":"5","projectId":"12"}' "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK/capacity/lanes"
+```
+
+### `POST /api/hub/plans/{id}/capacity/lanes/{laneId}`
+
+팀 줄의 주간 수용 정하기 · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+| `laneId` | path (주소 안) | yes | 팀 줄 번호 |
+| `weeklyCapacity` | json (JSON 본문) | yes | 한 주에 할 수 있는 양(null 이면 정해 둔 값을 지워요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"weeklyCapacity":12.5}' "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK/capacity/lanes/7"
+```
+
+### `GET /api/hub/plans/{id}/capacity/lanes/{laneId}/velocity`
+
+팀 줄의 지난 속도(주간 수용을 어림할 때 써요) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+| `laneId` | path (주소 안) | yes | 팀 줄 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK/capacity/lanes/7/velocity"
+```
+
+### `POST /api/hub/plans/{id}/capacity/items`
+
+릴리스를 팀 줄에 맡기기(laneId 를 비우면 손으로 맡긴 것을 풀어요) · scope: `issue:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 계획 번호 |
+| `projectId` | json (JSON 본문) | yes | 프로젝트 번호 |
+| `releaseId` | json (JSON 본문) |  | 릴리스 번호(비우면 출시 전 릴리스에 안 든 이슈 묶음) |
+| `laneId` | json (JSON 본문) |  | 팀 줄 번호(비우면 자동 배정으로 돌아가요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"12","releaseId":"34","laneId":"7"}' "$ZENTA_URL/api/hub/plans/AbCdEfGhIjK/capacity/items"
+```
+
+### `GET /api/hub/teams`
+
+팀 목록과 사람 수 · scope: `issue:read`
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/teams"
+```
+
+### `GET /api/hub/teams/{id}/members`
+
+팀에 든 사람들 · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 팀 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/teams/5/members"
+```
+
+### `GET /api/hub/users/who-to-ask`
+
+권한을 물어볼 사람(조직 관리자와 그 프로젝트의 구성원 관리자) · scope: `issue:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 번호나 키(주면 그 프로젝트의 관리자도 알려 줘요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/users/who-to-ask?projectId=ZEN"
+```
+
 ### `GET /api/hub/boards`
 
 볼 수 있는 보드 목록 · scope: `issue:read`
