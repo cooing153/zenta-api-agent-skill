@@ -1391,6 +1391,75 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/v1/messages
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/v1/messages/123/pin"
 ```
 
+### `GET /api/v1/streams/browse`
+
+들어갈 수 있는 공개 채널 둘러보기 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `q` | query (주소 뒤 ?) |  | 이름으로 좁히기 |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 받을 수(보내면 쪽으로 나눠 줘요) |
+| `cursor` | query (주소 뒤 ?) |  | 앞 응답의 nextCursor(다음 쪽) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/streams/browse?limit=50"
+```
+
+### `POST /api/v1/streams`
+
+채널 만들기(만든 사람이 그 채널에 들어가요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `name` | json (JSON 본문) | yes | 채널 이름(조직 안에서 하나뿐이어야 해요) |
+| `description` | json (JSON 본문) |  | 채널 설명 |
+| `invite_only` | json (JSON 본문) |  | true 면 비공개 채널(초대로만 들어와요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"name":"배포-알림","description":"배포 소식"}' "$ZENTA_URL/api/v1/streams"
+```
+
+### `PATCH /api/v1/streams/{id}`
+
+채널 이름 · 설명 · 보관 · 공개 범위 바꾸기(조직 관리자나 채널을 만든 사람만) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+| `name` | json (JSON 본문) |  | 새 이름 |
+| `description` | json (JSON 본문) |  | 새 설명 |
+| `is_archived` | json (JSON 본문) |  | true 면 보관, false 면 되살리기 |
+| `is_private` | json (JSON 본문) |  | true 면 비공개로, false 면 공개로 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"description":"배포 소식과 장애 알림"}' "$ZENTA_URL/api/v1/streams/123"
+```
+
+### `POST /api/v1/streams/{id}/invite`
+
+채널에 사람 초대하기(조직 관리자나 채널을 만든 사람만, 한 번에 100명까지이고 사람 수만큼 쓰기 한도에서 빠져요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+| `user_ids` | json (JSON 본문) | yes | 초대할 사람 번호 목록 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"user_ids":["123","456"]}' "$ZENTA_URL/api/v1/streams/123/invite"
+```
+
+### `POST /api/v1/streams/{id}/leave`
+
+채널에서 나가기(글은 그대로 남아요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/v1/streams/123/leave"
+```
+
 ### `GET /api/v1/messages/{id}/replies`
 
 메시지에 달린 답글 읽기 · scope: `chat:read`

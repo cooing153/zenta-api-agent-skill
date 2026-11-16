@@ -494,6 +494,31 @@ $Z DELETE /api/v1/messages/<message id>/pin --yes              # unpin; the mess
 - A blank direct message is refused (`400`), as in channels.
 - Answers carry names and ids of people, never other people's e-mail addresses.
 
+## Chat: channels — browse, make, change, invite, leave (`chat:read` / `chat:write`)
+
+```sh
+$Z GET /api/v1/streams/browse --query q=배포 --query limit=50        # public channels: {streams: [{stream_id, name, joined, members}]}
+$Z POST /api/v1/streams --json '{"name":"배포-알림","description":"배포 소식"}'           # {stream: {stream_id, …}}
+$Z POST /api/v1/streams --json '{"name":"인사-논의","invite_only":true}'                   # a private channel
+$Z PATCH /api/v1/streams/<channel id> --json '{"description":"배포 소식과 장애 알림"}'
+$Z PATCH /api/v1/streams/<channel id> --json '{"is_archived":true}'                        # false brings it back
+$Z POST /api/v1/streams/<channel id>/invite --json '{"user_ids":["<person id>"]}'          # {added, already, skipped}
+$Z POST /api/v1/streams/<channel id>/leave
+```
+
+- A channel name is unique in the organization (`400` «같은 이름의 채널이 이미 있어요» otherwise). The token owner
+  is in the channel they make.
+- Changing a channel and inviting people is for an organization admin or the person who made the channel (`403`
+  otherwise). `PATCH` takes `name`, `description`, `is_archived`, `is_private`; at most 100 people per invite,
+  and every person counts as one write against the 120-per-minute limit (a call that does not fit answers `429`
+  and adds nobody).
+- Archiving hides the channel for everyone, and `"is_private": false` opens a private channel's history to the
+  whole organization — show the user what will change and get a clear yes first.
+- Deleting a channel and changing how long messages are kept are not possible with a token (`400` «토큰으로는 …
+  칸을 쓸 수 없어요»).
+- Leaving a channel the owner is not in answers `400`; a private channel the owner cannot see answers like one that
+  does not exist.
+
 ## Chat: replies and reactions (`chat:read` / `chat:write`)
 
 ```sh

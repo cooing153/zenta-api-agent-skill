@@ -96,6 +96,9 @@ Things that trip people up:
   — see `references/recipes.md`.
 - Several issues can be changed or moved in one call (`/api/hub/issues/bulk`, at most 50 per call, each counted as
   a write) — always show the list and get a clear yes first; read `failed` in the answer.
+- Channels themselves: browse public ones, make a channel, rename or archive it, invite people, leave
+  (`/api/v1/streams`, `/api/v1/streams/browse`). Archiving and opening a private channel affect everyone — confirm
+  first; a channel cannot be deleted with a token.
 - Chat beyond channels: direct conversations (list, open, read, send), message search, unread counts, a channel's
   members and pinned messages, joining a public channel, editing your own message, pinning and unpinning
   (`/api/v1/dms`, `/api/v1/messages/search`, `/api/v1/streams/<id>/members`). A direct message reaches a person
