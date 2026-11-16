@@ -1785,6 +1785,210 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/unread"
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"content":"고친 글이에요"}' "$ZENTA_URL/api/v1/messages/123"
 ```
 
+### `GET /api/v1/saved`
+
+내가 담아 둔 메시지(한 번에 100건) · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `done` | query (주소 뒤 ?) |  | 1 이면 완료한 것 |
+| `archived` | query (주소 뒤 ?) |  | 1 이면 보관한 것 |
+| `cursor` | query (주소 뒤 ?) |  | 다음 쪽(앞 답의 nextCursor) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/saved"
+```
+
+### `GET /api/v1/messages/sent`
+
+내가 보낸 메시지(최근 것부터) · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `limit` | query (주소 뒤 ?) |  | 한 번에 받을 건수 |
+| `cursor` | query (주소 뒤 ?) |  | 다음 쪽(앞 답의 nextCursor) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/messages/sent"
+```
+
+### `GET /api/v1/messages/{id}/linked-issues`
+
+메시지에서 만든 이슈와 이어진 이슈(내가 볼 수 있는 것만) · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/messages/123/linked-issues"
+```
+
+### `GET /api/v1/streams/{id}/links`
+
+채널에 올라온 링크 모음 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+| `cursor` | query (주소 뒤 ?) |  | 다음 쪽(앞 답의 nextCursor) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/streams/123/links"
+```
+
+### `GET /api/v1/dms/{id}/links`
+
+개인 대화에 올라온 링크 모음 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 대화 번호 |
+| `cursor` | query (주소 뒤 ?) |  | 다음 쪽(앞 답의 nextCursor) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/dms/123/links"
+```
+
+### `GET /api/v1/streams/{id}/tabs`
+
+채널 위쪽의 탭과 고정한 링크 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/streams/123/tabs"
+```
+
+### `POST /api/v1/messages/{id}/save`
+
+메시지를 내 서랍에 담아 두기 · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/v1/messages/123/save"
+```
+
+### `DELETE /api/v1/messages/{id}/save`
+
+담아 둔 메시지 빼기(글은 그대로 남아요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/v1/messages/123/save"
+```
+
+### `PUT /api/v1/messages/{id}/remind`
+
+메시지를 나중에 다시 알려 달라고 하기(서랍에도 담겨요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+| `at` | json (JSON 본문) | yes | 알릴 시각(RFC 3339, 지금보다 뒤) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"at":"2026-12-01T09:00:00+09:00"}' "$ZENTA_URL/api/v1/messages/123/remind"
+```
+
+### `PUT /api/v1/messages/{id}/save_done`
+
+담아 둔 메시지를 완료로 표시하기 또는 되돌리기 · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+| `done` | json (JSON 본문) | yes | true 면 완료, false 면 되돌리기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"done":true}' "$ZENTA_URL/api/v1/messages/123/save_done"
+```
+
+### `PUT /api/v1/messages/{id}/save_archive`
+
+담아 둔 메시지를 보관하기 또는 되돌리기 · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+| `archived` | json (JSON 본문) | yes | true 면 보관, false 면 되돌리기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"archived":true}' "$ZENTA_URL/api/v1/messages/123/save_archive"
+```
+
+### `POST /api/v1/messages/{id}/follow`
+
+메시지의 답글 지켜보기 · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/v1/messages/123/follow"
+```
+
+### `DELETE /api/v1/messages/{id}/follow`
+
+메시지의 답글 그만 보기(글은 그대로 남아요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/v1/messages/123/follow"
+```
+
+### `POST /api/v1/streams/{id}/follow_all`
+
+채널의 모든 답글 지켜보기 켜고 끄기 · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+| `on` | json (JSON 본문) | yes | true 면 켜기, false 면 끄기 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"on":true}' "$ZENTA_URL/api/v1/streams/123/follow_all"
+```
+
+### `POST /api/v1/streams/{id}/mute`
+
+채널의 내 알림 단계 바꾸기 · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+| `level` | json (JSON 본문) | yes | all(모든 글) · mentions(나를 부른 글만) · none(끄기) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"level":"mentions"}' "$ZENTA_URL/api/v1/streams/123/mute"
+```
+
+### `POST /api/v1/messages/{id}/forward`
+
+메시지를 다른 채널이나 개인 대화로 전달하기(한 번에 10곳까지이고 보내는 곳 수만큼 글 보내기 한도에서 빠져요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+| `targets` | json (JSON 본문) | yes | 보낼 곳 목록이고 한 줄은 {"kind":"stream","id":채널 번호} 또는 {"kind":"dm","id":대화 번호} |
+| `note` | json (JSON 본문) |  | 덧붙일 말 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"targets":[{"kind":"stream","id":123}],"note":"참고해 주세요"}' "$ZENTA_URL/api/v1/messages/123/forward"
+```
+
 ### `POST /api/v1/messages/{id}/pin`
 
 메시지를 채널에 고정하기 · scope: `chat:write`

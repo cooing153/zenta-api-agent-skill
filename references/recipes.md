@@ -619,6 +619,33 @@ $Z DELETE /api/v1/messages/<message id>/pin --yes              # unpin; the mess
 - A blank direct message is refused (`400`), as in channels.
 - Answers carry names and ids of people, never other people's e-mail addresses.
 
+## Chat: my drawer, reminders, following replies, forward, links (`chat:read` / `chat:write`)
+
+```sh
+$Z POST /api/v1/messages/<message id>/save                                   # into the owner's drawer
+$Z PUT /api/v1/messages/<message id>/remind --json '{"at":"2026-12-01T09:00:00+09:00"}'   # remind me then (also saves it)
+$Z GET /api/v1/saved                                                         # {messages: […], nextCursor?} — add --query done=1 or archived=1
+$Z PUT /api/v1/messages/<message id>/save_done --json '{"done":true}'        # tick it off (save_archive works the same with "archived")
+$Z DELETE /api/v1/messages/<message id>/save --yes                           # out of the drawer; the message stays
+$Z POST /api/v1/messages/<message id>/follow                                 # get notified of replies (DELETE …/follow --yes stops)
+$Z POST /api/v1/streams/<channel id>/follow_all --json '{"on":true}'         # follow every thread of a channel
+$Z POST /api/v1/streams/<channel id>/mute --json '{"level":"mentions"}'      # all · mentions · none
+$Z POST /api/v1/messages/<message id>/forward --json '{"targets":[{"kind":"stream","id":<channel id>}],"note":"참고해 주세요"}'
+$Z GET /api/v1/messages/sent                                                 # what the owner posted, newest first
+$Z GET /api/v1/messages/<message id>/linked-issues                           # issues made from or linked to the message
+$Z GET /api/v1/streams/<channel id>/links                                    # links posted in a channel (…/dms/<dm id>/links for a conversation)
+$Z GET /api/v1/streams/<channel id>/tabs                                     # the channel's tabs and pinned links
+```
+
+- The drawer, reminders, following and the notification level are the token owner's own settings — nobody else
+  sees them. A reminder time must be in the future.
+- Forwarding posts a message in each target in the owner's name — confirm the targets and the note first. A target
+  is `{"kind":"stream","id":…}` (a channel the owner is in) or `{"kind":"dm","id":…}`, up to 10 a call. Every target
+  counts as one message against the 30-per-minute posting limit; a call that does not fit answers `429` and sends
+  nowhere.
+- A message or channel the owner cannot see answers like one that does not exist.
+- More of a list: `--query cursor=<nextCursor>`.
+
 ## Chat: channels — browse, make, change, invite, leave (`chat:read` / `chat:write`)
 
 ```sh
