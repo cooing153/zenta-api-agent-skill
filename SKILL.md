@@ -96,6 +96,10 @@ Things that trip people up:
   — see `references/recipes.md`.
 - Several issues can be changed or moved in one call (`/api/hub/issues/bulk`, at most 50 per call, each counted as
   a write) — always show the list and get a clear yes first; read `failed` in the answer.
+- Chat beyond channels: direct conversations (list, open, read, send), message search, unread counts, a channel's
+  members and pinned messages, joining a public channel, editing your own message, pinning and unpinning
+  (`/api/v1/dms`, `/api/v1/messages/search`, `/api/v1/streams/<id>/members`). A direct message reaches a person
+  at once — confirm first.
 - Saved filters: list, read, run (`/api/hub/filters/<id>/issues`), make, change and star them; a sprint's report
   (`/api/hub/sprints/<id>/report`); a person, the department tree and a department's members (`/api/hub/users/<id>`,
   `/api/hub/org/tree`). Sharing a filter with others needs the user's yes; deleting one is not possible.

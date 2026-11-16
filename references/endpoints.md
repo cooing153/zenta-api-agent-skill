@@ -1241,6 +1241,156 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -G --data-urlencode 'narrow=[{"oper
 curl -H "Authorization: Bearer $ZENTA_TOKEN" --data-urlencode "to=배포알림" --data-urlencode "content=배포가 끝났어요" "$ZENTA_URL/api/v1/messages"
 ```
 
+### `GET /api/v1/dms`
+
+내 개인 대화 목록 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `cursor` | query (주소 뒤 ?) |  | 앞 응답의 nextCursor(다음 쪽, 한 쪽에 100개) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/dms"
+```
+
+### `GET /api/v1/dms/{id}/messages`
+
+개인 대화의 메시지 읽기 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 개인 대화 번호 |
+| `num_before` | query (주소 뒤 ?) |  | 한 번에 몇 개 |
+| `before` | query (주소 뒤 ?) |  | 이 메시지 번호 앞의 글부터(이어 읽기) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/dms/123/messages?num_before=50"
+```
+
+### `POST /api/v1/dms`
+
+개인 대화 열기(같은 사람들과의 대화가 있으면 그 대화를 돌려줘요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `user_id` | form (폼 본문) |  | 상대 사람 번호(여럿이면 여러 번, 안 보내면 나에게 쓰는 대화) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" --data-urlencode "user_id=123" "$ZENTA_URL/api/v1/dms"
+```
+
+### `POST /api/v1/dms/{id}/messages`
+
+개인 대화에 메시지 보내기(채널 글과 합쳐 1분 30개까지) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 개인 대화 번호 |
+| `content` | form (폼 본문) | yes | 보낼 글(마크다운, 10,000자까지) |
+| `parent_id` | form (폼 본문) |  | 답글을 달 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" --data-urlencode "content=확인했어요" "$ZENTA_URL/api/v1/dms/123/messages"
+```
+
+### `GET /api/v1/streams/{id}/members`
+
+채널에 든 사람 목록 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+| `q` | query (주소 뒤 ?) |  | 이름으로 좁히기 |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 받을 수(보내면 쪽으로 나눠 줘요) |
+| `cursor` | query (주소 뒤 ?) |  | 앞 응답의 nextCursor(다음 쪽) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/streams/123/members?limit=50"
+```
+
+### `GET /api/v1/streams/{id}/pins`
+
+채널에 고정한 메시지 목록 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+| `cursor` | query (주소 뒤 ?) |  | 앞 응답의 nextCursor(다음 쪽, 한 쪽에 50개) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/streams/123/pins"
+```
+
+### `POST /api/v1/streams/{id}/join`
+
+공개 채널에 들어가기(비공개 채널은 초대로만 들어가요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 채널 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/v1/streams/123/join"
+```
+
+### `GET /api/v1/messages/search`
+
+내가 볼 수 있는 채널과 대화에서 메시지 찾기 · scope: `chat:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `q` | query (주소 뒤 ?) | yes | 찾을 낱말 |
+| `limit` | query (주소 뒤 ?) |  | 한 번에 받을 수 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -G --data-urlencode "q=배포" "$ZENTA_URL/api/v1/messages/search"
+```
+
+### `GET /api/v1/unread`
+
+채널과 대화마다 안 읽은 메시지 수 · scope: `chat:read`
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/v1/unread"
+```
+
+### `PATCH /api/v1/messages/{id}`
+
+내가 쓴 메시지 고치기(남의 글은 못 고쳐요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+| `content` | json (JSON 본문) | yes | 새 글(마크다운, 비울 수 없어요) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"content":"고친 글이에요"}' "$ZENTA_URL/api/v1/messages/123"
+```
+
+### `POST /api/v1/messages/{id}/pin`
+
+메시지를 채널에 고정하기 · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/v1/messages/123/pin"
+```
+
+### `DELETE /api/v1/messages/{id}/pin`
+
+메시지 고정 풀기(글은 그대로 남아요) · scope: `chat:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 메시지 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X DELETE "$ZENTA_URL/api/v1/messages/123/pin"
+```
+
 ### `GET /api/v1/messages/{id}/replies`
 
 메시지에 달린 답글 읽기 · scope: `chat:read`

@@ -467,6 +467,33 @@ are refused (`400`). One token may post at most 30 messages per minute (the firs
 `429 RATE_LIMITED` with `Retry-After` = seconds until a slot frees. Wait that long (`--retry` does), then send the
 rest — or put many lines into one message instead.
 
+## Chat: direct conversations, search, pins, members (`chat:read` / `chat:write`)
+
+```sh
+$Z GET /api/v1/dms                                             # the owner's direct conversations: {dms: […]}
+$Z POST /api/v1/dms --form user_id=<person id>                 # open one (answers the existing one if there is): {dm_id}
+$Z GET /api/v1/dms/<dm id>/messages --query num_before=50
+$Z POST /api/v1/dms/<dm id>/messages --form content='확인했어요'
+$Z GET /api/v1/messages/search --query q=배포                  # {results, hasMore} — only what the owner can see
+$Z GET /api/v1/unread                                          # unread counts per channel and conversation
+$Z GET /api/v1/streams/<channel id>/members --query limit=50   # {members, total, nextCursor}
+$Z GET /api/v1/streams/<channel id>/pins                       # pinned messages
+$Z POST /api/v1/streams/<channel id>/join                      # public channels only
+$Z PATCH /api/v1/messages/<message id> --json '{"content":"고친 글이에요"}'   # your own message
+$Z POST /api/v1/messages/<message id>/pin
+$Z DELETE /api/v1/messages/<message id>/pin --yes              # unpin; the message stays
+```
+
+- A direct message goes straight to a person and appears under the token owner's name — confirm the person and
+  the text first. Several `user_id` values open a group conversation; none opens the owner's note-to-self.
+  Direct messages share the 30-per-minute posting limit with channel posts.
+- Opening and sending are **form** bodies; editing a message is JSON. Editing works on the owner's own messages
+  only and cannot leave the text empty; deleting a message is not possible with a token.
+- A private channel is entered by invitation only: joining one the owner is not in answers `404`, like a channel
+  that does not exist. So does a conversation the owner is not part of, and a message the owner cannot see.
+- A blank direct message is refused (`400`), as in channels.
+- Answers carry names and ids of people, never other people's e-mail addresses.
+
 ## Chat: replies and reactions (`chat:read` / `chat:write`)
 
 ```sh
