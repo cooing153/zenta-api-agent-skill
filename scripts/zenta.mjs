@@ -15,7 +15,7 @@ import { basename } from 'node:path'
 import { docFromMarkdown, markdownFromDoc, pagePayload, unwritableKinds } from './markdown-doc.mjs'
 
 const SERVICE_URL = 'https://board.zentaoffice.com'
-const VERSION = '1.23.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
+const VERSION = '1.24.0' // keep equal to .claude-plugin/plugin.json "version" (the export script checks)
 const HELP = `사용법: node zenta.mjs <check | METHOD PATH> [옵션]
   --query k=v        주소 뒤 ?k=v (여러 번)
   --json '<JSON>'    JSON 본문
@@ -151,8 +151,10 @@ async function call(method, url, headers, body) {
 
 // Turns --markdown / --append-markdown into the page's doc + body. Returns the JSON text to send.
 async function withMarkdown(method, path, a, headers) {
-  const page = /^\/api\/hub\/wiki(\/[^/?]+)?$/.exec(path)
-  if (!(page && ((method === 'POST' && !page[1]) || (method === 'PUT' && page[1])))) fail('--markdown 은 문서 만들기(POST /api/hub/wiki)와 고치기(PUT /api/hub/wiki/{id})에만 써요.')
+  // A revision draft (PUT /api/hub/wiki/{id}/draft) is written like an edit: the page it starts from is the published one.
+  const page = /^\/api\/hub\/wiki(\/[^/?]+)?(\/draft)?$/.exec(path)
+  if (!(page && ((method === 'POST' && !page[1] && !page[2]) || (method === 'PUT' && page[1])))) fail('--markdown 은 문서 만들기(POST /api/hub/wiki)와 고치기(PUT /api/hub/wiki/{id} · PUT /api/hub/wiki/{id}/draft)에만 써요.')
+  const readPath = page[2] ? path.slice(0, -page[2].length) : path
   let body
   try {
     body = a.json === undefined ? {} : JSON.parse(a.json)
@@ -164,7 +166,7 @@ async function withMarkdown(method, path, a, headers) {
     const q = new URLSearchParams()
     if (body.projectId) q.set('projectId', String(body.projectId))
     if (body.scope) q.set('scope', String(body.scope))
-    const r = await call('GET', new URL(`${base()}${path}?${q}`), headers)
+    const r = await call('GET', new URL(`${base()}${readPath}?${q}`), headers)
     const cur = await r.json().catch(() => null)
     if (r.status !== 200) {
       err(hide(explain(r.status, cur, r.headers)))

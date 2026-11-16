@@ -1455,7 +1455,7 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/approvals?mine=
 
 | Field | Where | Required | Description |
 |---|---|---|---|
-| `id` | path (주소 안) | yes | 결재 번호 |
+| `id` | path (주소 안) | yes | 결재 번호 또는 공개 번호 |
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/approvals/123"
@@ -1502,7 +1502,7 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 
 | Field | Where | Required | Description |
 |---|---|---|---|
-| `id` | path (주소 안) | yes | 결재 번호 |
+| `id` | path (주소 안) | yes | 결재 번호 또는 공개 번호 |
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/approvals/123/withdraw"
@@ -1514,7 +1514,7 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/approva
 
 | Field | Where | Required | Description |
 |---|---|---|---|
-| `id` | path (주소 안) | yes | 결재 번호 |
+| `id` | path (주소 안) | yes | 결재 번호 또는 공개 번호 |
 | `comment` | json (JSON 본문) |  | 의견(500자까지) |
 
 ```sh
@@ -1527,7 +1527,7 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 
 | Field | Where | Required | Description |
 |---|---|---|---|
-| `id` | path (주소 안) | yes | 결재 번호 |
+| `id` | path (주소 안) | yes | 결재 번호 또는 공개 번호 |
 | `comment` | json (JSON 본문) | yes | 반려 사유(500자까지) |
 
 ```sh
@@ -2249,6 +2249,7 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/wiki/DOCID?proj
 | `doc` | json (JSON 본문) | yes | 문서 내용 트리이고 없으면 문서 내용이 비었다며 거절돼요. 가장 작은 모양은 {"v":1,"eol":false,"blocks":[{"id":"b1","kind":"paragraph","spans":[{"kind":"text","text":"글"}]}]} 이고(블록 id 는 비지 않고 겹치지 않게) 스킬 도우미(zenta.mjs)의 --markdown 이 마크다운에서 만들어 줘요 |
 | `body` | json (JSON 본문) |  | doc 과 같은 내용의 마크다운(200,000자까지, 검색·판 비교에 써요). doc 만 바꾸고 body 를 안 맞추면 검색이 틀어져요 |
 | `parentId` | json (JSON 본문) |  | 이 문서 아래에 만들기(번호) |
+| `draft` | json (JSON 본문) |  | true 면 나만 보는 초안으로 만들기(게시하기 전에는 다른 사람에게 안 보여요) |
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"projectId":"ZEN","title":"배포 절차","doc":{"v":1,"eol":false,"blocks":[{"id":"b1","kind":"paragraph","spans":[{"kind":"text","text":"빌드한 뒤 배포해요"}]}]},"body":"빌드한 뒤 배포해요"}' "$ZENTA_URL/api/hub/wiki"
@@ -2270,6 +2271,166 @@ curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json"
 
 ```sh
 curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"projectId":"ZEN","title":"배포 절차","doc":{"v":1,"eol":false,"blocks":[{"id":"b1","kind":"paragraph","spans":[{"kind":"text","text":"빌드한 뒤 배포해요"}]}]},"body":"빌드한 뒤 배포해요","revision":3}' "$ZENTA_URL/api/hub/wiki/DOCID"
+```
+
+### `GET /api/hub/wiki/my-drafts`
+
+내가 쓰던 문서 초안 목록 · scope: `doc:read`
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/wiki/my-drafts"
+```
+
+### `PUT /api/hub/wiki/{id}/draft`
+
+게시된 문서를 수정 초안으로 고치기(게시하기 전에는 읽는 사람에게 안 보여요) · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 게시된 문서 번호 |
+| `projectId` | json (JSON 본문) |  | 프로젝트 문서면 프로젝트 번호나 키(회사 문서면 scope 를 org 로) |
+| `scope` | json (JSON 본문) |  | 회사 문서면 org |
+| `title` | json (JSON 본문) | yes | 제목(200자까지) |
+| `doc` | json (JSON 본문) | yes | 바꾼 뒤의 문서 내용 전체 트리(문서 고치기와 같은 모양) |
+| `body` | json (JSON 본문) | yes | doc 과 같은 내용의 마크다운 전체 |
+| `revision` | json (JSON 본문) | yes | 읽을 때 받은 게시본의 판 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"projectId":"ZEN","title":"배포 절차","doc":{"v":1,"eol":false,"blocks":[{"id":"b1","kind":"paragraph","spans":[{"kind":"text","text":"빌드한 뒤 배포해요"}]}]},"body":"빌드한 뒤 배포해요","revision":3}' "$ZENTA_URL/api/hub/wiki/123/draft"
+```
+
+### `POST /api/hub/wiki/{id}/draft`
+
+다른 사람이 고치고 있는 수정 초안에 함께 들어가기(초안이 없으면 404) · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키 |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X POST "$ZENTA_URL/api/hub/wiki/123/draft?projectId=ZEN"
+```
+
+### `POST /api/hub/wiki/{id}/publish`
+
+초안 게시하기(수정 초안이면 게시된 글이 새 판으로 바뀌어요) · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 초안 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키 |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+| `memo` | json (JSON 본문) |  | 이번 판에 남길 메모 |
+| `force` | json (JSON 본문) |  | true 면 초안을 시작한 뒤 게시된 글이 바뀌었어도 덮어써요 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"memo":"절차를 고쳤어요"}' "$ZENTA_URL/api/hub/wiki/456/publish?projectId=ZEN"
+```
+
+### `POST /api/hub/wiki/{id}/review`
+
+문서 확정 요청 올리기(결재로 올라가요) · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 초안이나 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키 |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+| `approverIds` | json (JSON 본문) | yes | 결재자의 사용자 번호 목록(결재 순서대로) |
+| `note` | json (JSON 본문) |  | 요청 내용(2000자까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -H "Content-Type: application/json" -d '{"approverIds":["123"],"note":"확정해 주세요"}' "$ZENTA_URL/api/hub/wiki/456/review?projectId=ZEN"
+```
+
+### `PUT /api/hub/wiki/{id}/kind`
+
+문서를 소식으로 올리기 또는 내리기 · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키 |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+| `kind` | json (JSON 본문) | yes | news 면 소식으로 올리고 doc 이면 내려요 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"kind":"news"}' "$ZENTA_URL/api/hub/wiki/123/kind?projectId=ZEN"
+```
+
+### `PUT /api/hub/wiki/{id}/upkeep`
+
+문서의 관리 담당자와 다음 재검토일 정하기(둘을 함께 보내요) · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키 |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+| `ownerId` | json (JSON 본문) | yes | 담당자의 사용자 번호(빈 값이면 비우기) |
+| `due` | json (JSON 본문) | yes | 다음 재검토일(YYYY-MM-DD, null 이면 비우기) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PUT -H "Content-Type: application/json" -d '{"ownerId":"123","due":"2026-12-31"}' "$ZENTA_URL/api/hub/wiki/123/upkeep?projectId=ZEN"
+```
+
+### `GET /api/hub/wiki/{id}/views`
+
+문서를 본 사람과 횟수(쓴 사람과 관리자만) · scope: `doc:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키 |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/wiki/123/views?projectId=ZEN"
+```
+
+### `GET /api/hub/wiki/{id}/access`
+
+문서를 볼 수 있는 사람과 고칠 수 있는 사람 · scope: `doc:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키 |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/wiki/123/access?projectId=ZEN"
+```
+
+### `GET /api/hub/wiki/{id}/scope`
+
+문서가 어느 프로젝트의 것인지(또는 회사 문서인지) · scope: `doc:read`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" "$ZENTA_URL/api/hub/wiki/123/scope"
+```
+
+### `PATCH /api/hub/wiki/{id}/comments/{thread}/comments/{comment}`
+
+문서에 단 내 코멘트 고치기 · scope: `doc:write`
+
+| Field | Where | Required | Description |
+|---|---|---|---|
+| `id` | path (주소 안) | yes | 문서 번호 |
+| `thread` | path (주소 안) | yes | 코멘트 묶음 번호 |
+| `comment` | path (주소 안) | yes | 코멘트 번호 |
+| `projectId` | query (주소 뒤 ?) |  | 프로젝트 문서면 프로젝트 번호나 키 |
+| `scope` | query (주소 뒤 ?) |  | 회사 문서면 org |
+| `body` | json (JSON 본문) | yes | 고친 코멘트(4000자까지) |
+
+```sh
+curl -H "Authorization: Bearer $ZENTA_TOKEN" -X PATCH -H "Content-Type: application/json" -d '{"body":"숫자를 고쳤어요"}' "$ZENTA_URL/api/hub/wiki/123/comments/7/comments/9?projectId=ZEN"
 ```
 
 ### `POST /api/hub/wiki/{id}/copy`

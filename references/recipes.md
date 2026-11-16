@@ -260,6 +260,7 @@ $Z POST /api/hub/approvals/<approval id>/approve --json '{"comment":"확인했�
 $Z POST /api/hub/approvals/<approval id>/reject --json '{"comment":"예산 근거를 더해 주세요"}'   # a reason is required
 ```
 
+- An approval answers to its number (`id`) and to its public id (`publicId`, the one a document review hands out).
 - `state` is `pending`, `approved`, `rejected` or `withdrawn`. `GET /api/hub/approvals` comes 200 at a time; when
   200 arrive, ask again with `--query offset=200`. The approvals of one issue come all at once.
 - `approverIds` is the approval line in order (up to 10 organization members, not the requester and not guests). Add `"issueId":"<issue id>"`
@@ -550,6 +551,38 @@ $Z POST /api/hub/wiki/<id>/move --query projectId=ZEN --json '{"toProjectId":"ZE
   embeds) are refused by `--markdown` (replacing would drop them); use `--append-markdown`, or ask the user to edit
   in Zenta.
 - **Deleting documents is not possible with a token.** Tell the user to delete it in Zenta.
+
+## Documents: drafts, publishing, review, news, upkeep (`doc:read` / `doc:write`)
+
+```sh
+$Z POST /api/hub/wiki --json '{"projectId":"ZEN","title":"배포 절차","draft":true}' --markdown deploy.md   # a private draft: only the owner sees it
+$Z GET /api/hub/wiki/my-drafts                                                  # the owner's private drafts
+$Z PUT /api/hub/wiki/<id>/draft --json '{"projectId":"ZEN","revision":3}' --markdown whole.md   # change a published page as a revision draft
+$Z POST /api/hub/wiki/<draft id>/publish --query projectId=ZEN --json '{"memo":"절차를 고쳤어요"}'    # readers now see it
+$Z POST /api/hub/wiki/<draft id>/review --query projectId=ZEN --json '{"approverIds":["<user id>"],"note":"확정해 주세요"}'
+$Z PUT /api/hub/wiki/<id>/kind --query projectId=ZEN --json '{"kind":"news"}'    # show it as news ("doc" takes it back)
+$Z PUT /api/hub/wiki/<id>/upkeep --query projectId=ZEN --json '{"ownerId":"<user id>","due":"2026-12-31"}'
+$Z GET /api/hub/wiki/<id>/access --query projectId=ZEN                           # who may read and who may edit
+$Z GET /api/hub/wiki/<id>/views --query projectId=ZEN                            # {uniqueViewers, viewCount, viewers: […]} — author and admins only
+$Z GET /api/hub/wiki/<id>/scope                                                  # {scope: "project", projectKey} or {scope: "org"}
+$Z PATCH /api/hub/wiki/<id>/comments/<thread id>/comments/<comment id> --query projectId=ZEN --json '{"body":"숫자를 고쳤어요"}'
+```
+
+- **Two ways to change a published page.** `PUT /api/hub/wiki/<id>` saves a new version at once — everyone sees
+  it. `PUT …/<id>/draft` starts a **revision draft** instead: the answer is the draft (its own `id`, `draft.draftOf`
+  = the published page) and readers keep seeing the old text until the draft is published or approved. Keep
+  editing the draft with `PUT /api/hub/wiki/<draft id>` (its own `revision`).
+- If someone already has a revision draft open on that page, `PUT …/draft` answers `409`; read the page
+  (`draft.editing.draftId`) and join that draft with `POST …/<id>/draft` instead of starting another.
+- Publishing a revision draft answers `409 PUBLISHED_CHANGED` when the published page changed since the draft
+  started. Show the user both and send `"force":true` only if they say the draft should win.
+- A review request goes to the approvals: the page is locked for editing (`409 IN_REVIEW`) until the approvers
+  decide, and their approval publishes it. The answer carries `draft.review.approvalId` — read it with
+  `GET /api/hub/approvals/<approvalId>` and take the request back with `POST …/<approvalId>/withdraw`. Confirm the
+  approvers with the user first.
+- `upkeep` sets both fields at once: `"ownerId":""` and `"due":null` clear them.
+- Only the person who wrote a comment can edit it. Deleting a comment, changing who may read a page, public links
+  and going back to an old version are not possible with a token.
 
 ## Documents: copy, folders, labels, favorite, watch, restore (`doc:read` / `doc:write`)
 
